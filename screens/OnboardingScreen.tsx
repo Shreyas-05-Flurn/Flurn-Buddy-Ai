@@ -1,5 +1,6 @@
 import React from 'react';
 import { useUserProgress } from '../context/UserProgressContext';
+import { useSoundEffects } from '../audio/useSoundEffects';
 
 interface OnboardingScreenProps {
     onComplete: () => void;
@@ -7,8 +8,10 @@ interface OnboardingScreenProps {
 
 const OnboardingScreen: React.FC<OnboardingScreenProps> = ({ onComplete }) => {
     const { completeOnboarding } = useUserProgress();
+    const { playClick } = useSoundEffects();
 
     const handleStart = () => {
+        playClick();
         completeOnboarding();
         onComplete();
     };

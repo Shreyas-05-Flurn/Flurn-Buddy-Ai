@@ -8,9 +8,11 @@ import LeaderboardScreen from './screens/LeaderboardScreen';
 import PracticeHubScreen from './screens/PracticeHubScreen';
 import BuddyScreen from './screens/BuddyScreen';
 import BottomNav from './components/BottomNav';
-import { Lesson, World } from './types';
+// FIX: Import Screen, Lesson, and World types from the corrected types.ts file.
+import { Lesson, World, Screen } from './types';
+import { SHOP_COSMETICS } from './constants';
 
-export type Screen = 'onboarding' | 'home' | 'lesson' | 'profile' | 'leaderboard' | 'practice' | 'buddy';
+// FIX: Screen type is now imported from types.ts to avoid duplication and act as a single source of truth.
 
 const App: React.FC = () => {
     return (
@@ -70,8 +72,10 @@ const MainApp: React.FC = () => {
     
     const showNav = currentScreen !== 'onboarding' && currentScreen !== 'lesson';
 
+    const activeTheme = SHOP_COSMETICS.find(theme => theme.id === progress.activeTheme) || SHOP_COSMETICS[0];
+
     return (
-        <div className="relative w-full h-screen flex flex-col bg-gradient-to-b from-slate-900 to-slate-800">
+        <div className={`relative w-full h-screen flex flex-col bg-gradient-to-b ${activeTheme.colors.bgGradient}`}>
             <main className="flex-1 overflow-y-auto pb-20 no-scrollbar">
                 {renderScreen()}
             </main>

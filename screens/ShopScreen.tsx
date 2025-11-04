@@ -1,13 +1,17 @@
 import React, { useState, useEffect } from 'react';
 import { useUserProgress, SHOP_ITEMS } from '../context/UserProgressContext';
+import { useSoundEffects } from '../audio/useSoundEffects';
+import { SHOP_COSMETICS } from '../constants';
 
 interface ShopScreenProps {
     onClose: () => void;
 }
 
 const ShopScreen: React.FC<ShopScreenProps> = ({ onClose }) => {
-    const { progress, purchaseItem } = useUserProgress();
+    const { progress, purchaseItem, equipTheme } = useUserProgress();
+    const { playClick, playSuccess } = useSoundEffects();
     const [xpBoostTimeLeft, setXpBoostTimeLeft] = useState('');
+    const [activeTab, setActiveTab] = useState<'perks' | 'cosmetics'>('perks');
 
     useEffect(() => {
         const xpBoost = progress.xpBoosts;
@@ -37,7 +41,7 @@ const ShopScreen: React.FC<ShopScreenProps> = ({ onClose }) => {
         return () => clearInterval(intervalId);
     }, [progress.xpBoosts.activeUntil]);
     
-    const shopItems = [
+    const shopPerks = [
         {
             id: 'streakFreeze' as const,
             name: 'Streak Freeze',
@@ -67,6 +71,97 @@ const ShopScreen: React.FC<ShopScreenProps> = ({ onClose }) => {
         },
     ];
 
+    const handlePurchase = (itemId: string, category: 'perk' | 'cosmetic') => {
+        playSuccess();
+        purchaseItem(itemId, category);
+    };
+    
+    const handleEquip = (themeId: string) => {
+        playClick();
+        equipTheme(themeId);
+    }
+
+    const renderPerks = () => (
+        <div className="space-y-4">
+            {shopPerks.map((item) => {
+                const hasEnoughTokens = progress.tokens >= item.cost;
+                const isBoostActive = item.id === 'xpBoost' && xpBoostTimeLeft;
+                return (
+                    <div key={item.id} className="bg-slate-800 p-4 rounded-lg flex items-center space-x-4">
+                        <div className={`w-16 h-16 rounded-lg bg-slate-700 flex items-center justify-center ${item.color}`}>
+                            <span className="text-4xl">{item.emoji}</span>
+                        </div>
+                        <div className="flex-1">
+                            <h3 className="font-bold text-lg text-slate-100">{item.name}</h3>
+                            <p className="text-sm text-slate-400">{item.description}</p>
+                            <p className="text-xs text-slate-500 font-semibold mt-1">
+                                {isBoostActive ? (
+                                    <span className="text-amber-400">Time left: {xpBoostTimeLeft}</span>
+                                ) : (
+                                    `You have: ${item.owned}`
+                                )}
+                            </p>
+                        </div>
+                        <button
+                            onClick={() => handlePurchase(item.id, 'perk')}
+                            disabled={!hasEnoughTokens}
+                            className={`flex items-center justify-center px-4 py-2 rounded-lg font-bold text-white transition-colors w-28
+                                ${hasEnoughTokens
+                                    ? 'bg-green-600 hover:bg-green-700'
+                                    : 'bg-slate-600 cursor-not-allowed'
+                                }`}
+                        >
+                            <span className="text-lg mr-1.5">💎</span>
+                            <span>{item.cost}</span>
+                        </button>
+                    </div>
+                );
+            })}
+        </div>
+    );
+
+    const renderCosmetics = () => (
+        <div className="space-y-4">
+            {SHOP_COSMETICS.map((theme) => {
+                const hasEnoughTokens = progress.tokens >= theme.cost;
+                const isOwned = progress.inventory.themes.includes(theme.id);
+                const isEquipped = progress.activeTheme === theme.id;
+                
+                return (
+                     <div key={theme.id} className="bg-slate-800 p-4 rounded-lg flex items-center space-x-4">
+                        <div className={`w-16 h-16 rounded-lg bg-gradient-to-br ${theme.colors.bgGradient} flex items-center justify-center border-2 border-slate-600`}>
+                            <span className="text-4xl">🎨</span>
+                        </div>
+                        <div className="flex-1">
+                            <h3 className="font-bold text-lg text-slate-100">{theme.name}</h3>
+                            <p className="text-sm text-slate-400">Change the app's look.</p>
+                        </div>
+                        
+                        {isEquipped ? (
+                            <button disabled className="px-4 py-2 rounded-lg font-bold w-28 bg-slate-700 text-slate-400">Equipped</button>
+                        ) : isOwned ? (
+                            <button onClick={() => handleEquip(theme.id)} className="px-4 py-2 rounded-lg font-bold text-white w-28 bg-sky-600 hover:bg-sky-700">Equip</button>
+                        ) : (
+                            <button
+                                onClick={() => handlePurchase(theme.id, 'cosmetic')}
+                                disabled={!hasEnoughTokens}
+                                className={`flex items-center justify-center px-4 py-2 rounded-lg font-bold text-white transition-colors w-28
+                                    ${hasEnoughTokens
+                                        ? 'bg-green-600 hover:bg-green-700'
+                                        : 'bg-slate-600 cursor-not-allowed'
+                                    }`}
+                            >
+                                <span className="text-lg mr-1.5">💎</span>
+                                <span>{theme.cost}</span>
+                            </button>
+                        )}
+                    </div>
+                )
+            })}
+        </div>
+    );
+
+
     return (
         <div className="fixed inset-0 bg-black/70 flex items-center justify-center z-50 p-4">
             <div className="bg-slate-900 border-2 border-slate-700 w-full max-w-sm h-[85vh] rounded-2xl flex flex-col shadow-2xl">
@@ -75,52 +170,22 @@ const ShopScreen: React.FC<ShopScreenProps> = ({ onClose }) => {
                         <span className="text-3xl text-green-400">🛒</span>
                         <h2 className="text-xl font-bold text-white">Shop</h2>
                     </div>
-                    <button onClick={onClose} className="text-slate-400 hover:text-white">
+                    <button onClick={() => { playClick(); onClose(); }} className="text-slate-400 hover:text-white">
                         <span className="text-3xl">❌</span>
                     </button>
                 </header>
                 <div className="flex-grow overflow-y-auto p-6 space-y-6 no-scrollbar">
-                    <p className="text-slate-400 text-center">Spend your tokens on awesome perks!</p>
                     <div className="text-center font-bold text-2xl text-green-400 flex items-center justify-center">
                         <span className="text-3xl mr-2">💎</span> {progress.tokens}
                     </div>
 
-                    <div className="space-y-4">
-                        {shopItems.map((item) => {
-                            const hasEnoughTokens = progress.tokens >= item.cost;
-                            const isBoostActive = item.id === 'xpBoost' && xpBoostTimeLeft;
-                            return (
-                                <div key={item.id} className="bg-slate-800 p-4 rounded-lg flex items-center space-x-4">
-                                    <div className={`w-16 h-16 rounded-lg bg-slate-700 flex items-center justify-center ${item.color}`}>
-                                        <span className="text-4xl">{item.emoji}</span>
-                                    </div>
-                                    <div className="flex-1">
-                                        <h3 className="font-bold text-lg text-slate-100">{item.name}</h3>
-                                        <p className="text-sm text-slate-400">{item.description}</p>
-                                        <p className="text-xs text-slate-500 font-semibold mt-1">
-                                            {isBoostActive ? (
-                                                <span className="text-amber-400">Time left: {xpBoostTimeLeft}</span>
-                                            ) : (
-                                                `You have: ${item.owned}`
-                                            )}
-                                        </p>
-                                    </div>
-                                    <button
-                                        onClick={() => purchaseItem(item.id)}
-                                        disabled={!hasEnoughTokens}
-                                        className={`flex items-center justify-center px-4 py-2 rounded-lg font-bold text-white transition-colors w-28
-                                            ${hasEnoughTokens
-                                                ? 'bg-green-600 hover:bg-green-700'
-                                                : 'bg-slate-600 cursor-not-allowed'
-                                            }`}
-                                    >
-                                        <span className="text-lg mr-1.5">💎</span>
-                                        <span>{item.cost}</span>
-                                    </button>
-                                </div>
-                            );
-                        })}
+                    <div className="flex bg-slate-800 rounded-lg p-1">
+                        <button onClick={() => setActiveTab('perks')} className={`w-1/2 p-2 rounded font-bold ${activeTab === 'perks' ? 'bg-green-500 text-white' : 'text-slate-400'}`}>Perks</button>
+                        <button onClick={() => setActiveTab('cosmetics')} className={`w-1/2 p-2 rounded font-bold ${activeTab === 'cosmetics' ? 'bg-green-500 text-white' : 'text-slate-400'}`}>Cosmetics</button>
                     </div>
+
+                    {activeTab === 'perks' ? renderPerks() : renderCosmetics()}
+
                 </div>
             </div>
         </div>

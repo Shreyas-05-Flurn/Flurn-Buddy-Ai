@@ -1,4 +1,58 @@
-// FIX: Removed self-import of Friend, Quest, and League which conflicted with local declarations.
+// --- LESSON & WORLD TYPES ---
+export interface QuizQuestion {
+    question: string;
+    options: string[];
+    correctAnswer: string;
+}
+
+export interface ChordContent {
+    name: string;
+    notes: string[];
+}
+
+export interface SongContent {
+    name: string;
+    notes: string[];
+}
+
+export interface Lesson {
+    id: string;
+    type: 'note_identification' | 'quiz' | 'boss' | 'chord_identification' | 'song';
+    title: string;
+    xp: number;
+    tokens: number;
+    content: string[] | QuizQuestion[] | ChordContent | SongContent;
+    fact?: string;
+}
+
+export interface World {
+    id: string;
+    title: string;
+    description: string;
+    color: string;
+    lessons: Lesson[];
+}
+
+// --- USER PROGRESS & GAMIFICATION TYPES ---
+export interface Quest {
+    id: string;
+    type: 'earn_xp' | 'complete_lessons';
+    description: string;
+    target: number;
+    reward: { tokens: number };
+    progress: number;
+    isClaimed: boolean;
+}
+
+export type LeagueTier = 'Bronze' | 'Silver' | 'Gold' | 'Diamond';
+
+export interface Friend {
+    id: string;
+    name: string;
+    xp: number;
+    avatar: string;
+}
+
 export interface UserProgress {
     hasOnboarded: boolean;
     xp: number;
@@ -13,81 +67,19 @@ export interface UserProgress {
     nickname: string;
     avatar: string;
     streakFreezes: number;
-    xpBoosts: {
-        count: number;
-        activeUntil: string | null;
-    };
+    xpBoosts: { count: number; activeUntil: string | null };
     classCredits: number;
     friends: Friend[];
-    dailyQuests: DailyQuestState;
-    league: League;
+    dailyQuests: { quests: Quest[]; lastRefreshed: string | null };
+    league: { tier: LeagueTier; xp: number; lastCalculated: string | null };
+    inventory: { themes: string[] };
+    activeTheme: string;
 }
 
-export type LessonType = 'note_identification' | 'chord_identification' | 'rhythm_challenge' | 'ear_training' | 'quiz' | 'boss' | 'song';
+// --- UI & APP STATE TYPES ---
+export type Screen = 'onboarding' | 'home' | 'lesson' | 'profile' | 'leaderboard' | 'practice' | 'buddy';
 
-export interface QuizQuestion {
-    question: string;
-    options: string[];
-    correctAnswer: string;
-}
-
-export interface Lesson {
-    id: string;
-    type: LessonType;
-    title: string;
-    xp: number;
-    tokens: number;
-    content: any; // This will vary based on lesson type
-    fact?: string; // Optional fun fact after lesson
-}
-
-export interface World {
-    id:string;
-    title: string;
-    description: string;
-    color: string; // e.g., 'bg-green-500'
-    lessons: Lesson[];
-}
-
-export interface Achievement {
-    id: string;
-    title: string;
-    description: string;
-    icon: string; // e.g., emoji '🏆'
-}
-
-// --- New Feature Types ---
-
-export interface Friend {
-    id: string;
-    name: string;
-    xp: number;
-    avatar: string;
-}
-
-export type QuestType = 'earn_xp' | 'complete_lessons' | 'perfect_notes'; // perfect_notes is for future use
-export interface Quest {
-    id: string;
-    type: QuestType;
-    description: string;
-    target: number;
-    progress: number;
-    reward: { tokens: number };
-    isClaimed: boolean;
-}
-
-export interface DailyQuestState {
-    quests: Quest[];
-    lastRefreshed: string | null;
-}
-
-export type LeagueTier = 'Bronze' | 'Silver' | 'Gold' | 'Diamond';
-export interface League {
-    tier: LeagueTier;
-    xp: number;
-    lastCalculated: string | null;
-}
-
+// --- BEAT MAKER TYPES ---
 export interface BeatStep {
     note: string;
     isActive: boolean;

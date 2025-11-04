@@ -1,5 +1,7 @@
 import React from 'react';
-import { Screen } from '../App';
+// FIX: Import Screen type from the centralized types.ts file.
+import { Screen } from '../types';
+import { useSoundEffects } from '../audio/useSoundEffects';
 
 interface BottomNavProps {
     currentScreen: Screen;
@@ -7,6 +9,8 @@ interface BottomNavProps {
 }
 
 const BottomNav: React.FC<BottomNavProps> = ({ currentScreen, onNavigate }) => {
+    const { playClick } = useSoundEffects();
+    
     const navItems = [
         { screen: 'home' as Screen, emoji: '🏠', label: 'Learn' },
         { screen: 'practice' as Screen, emoji: '🎮', label: 'Practice' },
@@ -14,6 +18,11 @@ const BottomNav: React.FC<BottomNavProps> = ({ currentScreen, onNavigate }) => {
         { screen: 'leaderboard' as Screen, emoji: '🏆', label: 'Rank' },
         { screen: 'profile' as Screen, emoji: '👤', label: 'Profile' },
     ];
+
+    const handleNavigation = (screen: Screen) => {
+        playClick();
+        onNavigate(screen);
+    };
 
     return (
         <div className="absolute bottom-0 left-0 right-0 bg-slate-900 border-t border-slate-700 shadow-t-lg">
@@ -23,7 +32,7 @@ const BottomNav: React.FC<BottomNavProps> = ({ currentScreen, onNavigate }) => {
                     return (
                         <button
                             key={item.screen}
-                            onClick={() => onNavigate(item.screen)}
+                            onClick={() => handleNavigation(item.screen)}
                             className={`flex flex-col items-center justify-center w-full h-full transition-colors duration-200 ${
                                 isActive ? 'text-green-400' : 'text-slate-400 hover:text-green-400'
                             }`}

@@ -6,6 +6,7 @@ import Staff from '../components/Staff';
 import MultipleChoice from '../components/MultipleChoice';
 import FactModal from '../components/FactModal';
 import { usePitchDetection } from '../audio/usePitchDetection';
+import { useSoundEffects } from '../audio/useSoundEffects';
 
 interface LessonScreenProps {
     world: World;
@@ -15,6 +16,7 @@ interface LessonScreenProps {
 
 const LessonScreen: React.FC<LessonScreenProps> = ({ world, lesson, onComplete }) => {
     const { completeLesson } = useUserProgress();
+    const { playSuccess, playError, playClick } = useSoundEffects();
     const [currentIndex, setCurrentIndex] = useState(0);
     const [isCorrect, setIsCorrect] = useState<boolean | null>(null);
     const [isComplete, setIsComplete] = useState(false);
@@ -26,9 +28,10 @@ const LessonScreen: React.FC<LessonScreenProps> = ({ world, lesson, onComplete }
     const { detectedNotes, isListening, startListening, stopListening, error } = usePitchDetection();
     const feedbackTimeoutRef = useRef<number | null>(null);
 
-    const isSongLesson = lesson.type === 'song';
-    const lessonContent = isSongLesson ? lesson.content.notes : lesson.content;
-    const songName = isSongLesson ? lesson.content.name : null;
+    // FIX: Intelligently handle song-like lessons, even if they are 'boss' type.
+    const isSongLike = lesson.type === 'song' || (lesson.type === 'boss' && typeof lesson.content === 'object' && lesson.content.notes);
+    const lessonContent = isSongLike ? lesson.content.notes : lesson.content;
+    const songName = isSongLike ? lesson.content.name : null;
     const totalItems = Array.isArray(lessonContent) ? lessonContent.length : 1;
     
     const progressPercentage = (currentIndex / totalItems) * 100;
@@ -49,6 +52,7 @@ const LessonScreen: React.FC<LessonScreenProps> = ({ world, lesson, onComplete }
     const handleCorrect = useCallback(() => {
         clearFeedbackTimeout();
         setIsCorrect(true);
+        playSuccess();
         if (isListening) stopListening();
 
         feedbackTimeoutRef.current = setTimeout(() => {
@@ -57,6 +61,7 @@ const LessonScreen: React.FC<LessonScreenProps> = ({ world, lesson, onComplete }
                 setIsCorrect(null);
             } else {
                 setIsComplete(true);
+                playSuccess();
                 completeLesson(lesson.id, lesson.xp, lesson.tokens, world.id);
                  if (lesson.fact) {
                     setShowFact(true);
@@ -65,11 +70,12 @@ const LessonScreen: React.FC<LessonScreenProps> = ({ world, lesson, onComplete }
                 }
             }
         }, 1000);
-    }, [currentIndex, totalItems, completeLesson, lesson, world.id, onComplete, isListening, stopListening]);
+    }, [currentIndex, totalItems, completeLesson, lesson, world.id, onComplete, isListening, stopListening, playSuccess]);
 
     const handleIncorrect = useCallback(() => {
         clearFeedbackTimeout();
         setIsCorrect(false);
+        playError();
         
         const newMistakeCount = mistakeCount + 1;
         setMistakeCount(newMistakeCount);
@@ -80,7 +86,7 @@ const LessonScreen: React.FC<LessonScreenProps> = ({ world, lesson, onComplete }
         feedbackTimeoutRef.current = setTimeout(() => {
             setIsCorrect(null);
         }, 1200);
-    }, [mistakeCount]);
+    }, [mistakeCount, playError]);
     
     // Effect for chord detection (correctness and mistakes)
     useEffect(() => {
@@ -111,6 +117,7 @@ const LessonScreen: React.FC<LessonScreenProps> = ({ world, lesson, onComplete }
 
 
     const handleFactModalClose = () => {
+        playClick();
         setShowFact(false);
         onComplete(true);
     };
@@ -179,7 +186,10 @@ const LessonScreen: React.FC<LessonScreenProps> = ({ world, lesson, onComplete }
                         {error && <p className="text-red-500 mb-4">{error}</p>}
 
                         <button
-                            onClick={isListening ? stopListening : startListening}
+                            onClick={() => {
+                                playClick();
+                                isListening ? stopListening() : startListening();
+                            }}
                             className={`w-32 h-32 rounded-full flex items-center justify-center transition-all duration-300 ${
                                 isListening ? 'bg-red-500 animate-pulse' : 'bg-green-500'
                             }`}
@@ -208,7 +218,7 @@ const LessonScreen: React.FC<LessonScreenProps> = ({ world, lesson, onComplete }
         <div className="flex flex-col h-full text-white p-4">
             {/* Header */}
             <div className="flex items-center justify-between mb-4">
-                <button onClick={() => onComplete(false)} className="text-slate-400 hover:text-white">
+                <button onClick={() => { playClick(); onComplete(false); }} className="text-slate-400 hover:text-white">
                     <span className="text-3xl">❌</span>
                 </button>
                 <div className="w-full bg-slate-700 rounded-full h-4 mx-4">

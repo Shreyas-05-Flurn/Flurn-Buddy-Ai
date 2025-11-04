@@ -1,13 +1,16 @@
 import React, { useState } from 'react';
 import { useUserProgress } from '../context/UserProgressContext';
-import { XP_PER_LEVEL, SELECTABLE_AVATARS } from '../constants';
+import { XP_PER_LEVEL, SELECTABLE_AVATARS, VERSION_LOG } from '../constants';
 import Header from '../components/Header';
 import ShopScreen from './ShopScreen';
+import { useSoundEffects } from '../audio/useSoundEffects';
 
 const ProfileScreen: React.FC = () => {
     const { progress, toggleDevMode, addFriend, sendGift, setStreak, updateProfile } = useUserProgress();
+    const { playClick, playSuccess } = useSoundEffects();
     const [isEditModalOpen, setIsEditModalOpen] = useState(false);
     const [isShopOpen, setIsShopOpen] = useState(false);
+    const [isVersionLogOpen, setIsVersionLogOpen] = useState(false);
     const [tempNickname, setTempNickname] = useState(progress.nickname);
     const [tempAvatar, setTempAvatar] = useState(progress.avatar);
     const [newFriendName, setNewFriendName] = useState('');
@@ -19,6 +22,7 @@ const ProfileScreen: React.FC = () => {
 
     const handleSaveProfile = () => {
         if (tempNickname.trim()) {
+            playSuccess();
             updateProfile(tempNickname.trim(), tempAvatar);
             setIsEditModalOpen(false);
         }
@@ -26,6 +30,7 @@ const ProfileScreen: React.FC = () => {
 
     const handleAddFriend = (e: React.FormEvent) => {
         e.preventDefault();
+        playClick();
         if (newFriendName.trim()) {
             addFriend(newFriendName.trim());
             setNewFriendName('');
@@ -33,9 +38,11 @@ const ProfileScreen: React.FC = () => {
     };
 
     const handleSendGift = (friendId: string) => {
+        playClick();
         if (progress.streakFreezes > 0) {
             const success = sendGift(friendId, 'streakFreeze');
             if (success) {
+                playSuccess();
                 setGiftFeedback('🎁 Gift sent!');
                 setTimeout(() => setGiftFeedback(''), 2000);
             }
@@ -47,6 +54,7 @@ const ProfileScreen: React.FC = () => {
 
     const handleSetStreak = (e: React.FormEvent) => {
         e.preventDefault();
+        playClick();
         const newStreak = parseInt(streakInput, 10);
         if (!isNaN(newStreak)) {
             setStreak(newStreak);
@@ -118,6 +126,7 @@ const ProfileScreen: React.FC = () => {
                         <p className="text-slate-400">Level {progress.level}</p>
                     </div>
                     <button onClick={() => {
+                        playClick();
                         setTempNickname(progress.nickname);
                         setTempAvatar(progress.avatar);
                         setIsEditModalOpen(true);
@@ -128,7 +137,7 @@ const ProfileScreen: React.FC = () => {
                 
                 {/* Shop Button */}
                 <button 
-                    onClick={() => setIsShopOpen(true)}
+                    onClick={() => { playClick(); setIsShopOpen(true); }}
                     className="w-full bg-green-500 text-white font-bold py-3 px-6 rounded-xl flex items-center justify-center space-x-2 shadow-lg shadow-green-500/20 hover:bg-green-600 transform hover:scale-105 transition-all"
                 >
                     <span className="text-2xl">🛒</span>
@@ -194,21 +203,29 @@ const ProfileScreen: React.FC = () => {
                             <h3 className="font-bold text-slate-200">Developer Mode</h3>
                             <p className="text-sm text-slate-400">Unlock all lessons & get 100,000 tokens.</p>
                         </div>
-                        <button onClick={toggleDevMode} className={`relative inline-flex items-center h-6 rounded-full w-11 transition-colors ${progress.isDevMode ? 'bg-green-500' : 'bg-slate-600'}`}>
+                        <button onClick={() => { playClick(); toggleDevMode(); }} className={`relative inline-flex items-center h-6 rounded-full w-11 transition-colors ${progress.isDevMode ? 'bg-green-500' : 'bg-slate-600'}`}>
                             <span className={`inline-block w-4 h-4 transform bg-white rounded-full transition-transform ${progress.isDevMode ? 'translate-x-6' : 'translate-x-1'}`} />
                         </button>
                     </div>
                     {progress.isDevMode && (
-                        <form onSubmit={handleSetStreak} className="flex space-x-2 pt-4 border-t border-slate-700">
-                             <input 
-                                type="number" 
-                                value={streakInput} 
-                                onChange={(e) => setStreakInput(e.target.value)} 
-                                placeholder="Set custom streak..." 
-                                className="flex-1 bg-slate-700 text-sm p-2 rounded w-full"
-                             />
-                             <button type="submit" className="bg-green-500 font-bold px-4 rounded">Set</button>
-                        </form>
+                        <div className="pt-4 border-t border-slate-700 space-y-4">
+                            <form onSubmit={handleSetStreak} className="flex space-x-2">
+                                 <input 
+                                    type="number" 
+                                    value={streakInput} 
+                                    onChange={(e) => setStreakInput(e.target.value)} 
+                                    placeholder="Set custom streak..." 
+                                    className="flex-1 bg-slate-700 text-sm p-2 rounded w-full"
+                                 />
+                                 <button type="submit" className="bg-green-500 font-bold px-4 rounded">Set</button>
+                            </form>
+                            <button
+                                onClick={() => { playClick(); setIsVersionLogOpen(true); }}
+                                className="w-full text-center bg-slate-700 text-sm font-bold py-2 px-3 rounded-lg hover:bg-slate-600 transition-colors"
+                            >
+                                View Version Log
+                            </button>
+                        </div>
                     )}
                 </div>
             </div>
@@ -230,7 +247,7 @@ const ProfileScreen: React.FC = () => {
                             {SELECTABLE_AVATARS.map(avatar => (
                                 <button
                                     key={avatar}
-                                    onClick={() => setTempAvatar(avatar)}
+                                    onClick={() => { playClick(); setTempAvatar(avatar); }}
                                     className={`text-3xl rounded-lg p-1 transition-all ${tempAvatar === avatar ? 'bg-green-500 ring-2 ring-white' : 'hover:bg-slate-700'}`}
                                 >
                                     {avatar}
@@ -238,7 +255,7 @@ const ProfileScreen: React.FC = () => {
                             ))}
                         </div>
                         <div className="flex justify-end space-x-2 mt-6">
-                            <button onClick={() => setIsEditModalOpen(false)} className="bg-slate-600 text-white font-bold py-2 px-4 rounded-lg">Cancel</button>
+                            <button onClick={() => { playClick(); setIsEditModalOpen(false); }} className="bg-slate-600 text-white font-bold py-2 px-4 rounded-lg">Cancel</button>
                             <button onClick={handleSaveProfile} className="bg-green-500 text-white font-bold py-2 px-4 rounded-lg">Save</button>
                         </div>
                     </div>
@@ -246,6 +263,34 @@ const ProfileScreen: React.FC = () => {
             )}
 
             {isShopOpen && <ShopScreen onClose={() => setIsShopOpen(false)} />}
+            
+            {isVersionLogOpen && (
+                <div className="fixed inset-0 bg-black/70 flex items-center justify-center z-50 p-4">
+                    <div className="bg-slate-900 border-2 border-slate-700 w-full max-w-sm h-[85vh] rounded-2xl flex flex-col shadow-2xl">
+                        <header className="flex items-center justify-between p-4 border-b border-slate-700">
+                            <h2 className="text-xl font-bold text-white">Version Log</h2>
+                            <button onClick={() => { playClick(); setIsVersionLogOpen(false); }} className="text-slate-400 hover:text-white">
+                                <span className="text-3xl">❌</span>
+                            </button>
+                        </header>
+                        <div className="flex-grow overflow-y-auto p-6 space-y-6 no-scrollbar">
+                            {VERSION_LOG.slice().reverse().map(version => (
+                                <div key={version.version} className="bg-slate-800 p-4 rounded-lg">
+                                    <div className="flex justify-between items-baseline">
+                                        <h3 className="font-bold text-lg text-green-400">Version {version.version}</h3>
+                                        <p className="text-xs text-slate-400">{version.date}</p>
+                                    </div>
+                                    <ul className="list-disc list-inside mt-2 space-y-1 text-slate-300 text-sm">
+                                        {version.notes.map((note, index) => (
+                                            <li key={index}>{note}</li>
+                                        ))}
+                                    </ul>
+                                </div>
+                            ))}
+                        </div>
+                    </div>
+                </div>
+            )}
         </div>
     );
 };

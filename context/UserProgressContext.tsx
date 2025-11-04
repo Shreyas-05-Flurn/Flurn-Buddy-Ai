@@ -1,6 +1,7 @@
 import React, { createContext, useContext, useState, useEffect, ReactNode, useCallback } from 'react';
 import { UserProgress, Quest, Friend } from '../types';
-import { XP_PER_LEVEL, WORLDS_DATA, DAILY_QUEST_DEFINITIONS, MOCK_INITIAL_FRIENDS } from '../constants';
+import { XP_PER_LEVEL, WORLDS_DATA, DAILY_QUEST_DEFINITIONS, MOCK_INITIAL_FRIENDS, SHOP_COSMETICS } from '../constants';
+import { useSoundEffects } from '../audio/useSoundEffects';
 
 const defaultProgress: UserProgress = {
     hasOnboarded: false,
@@ -21,6 +22,8 @@ const defaultProgress: UserProgress = {
     friends: MOCK_INITIAL_FRIENDS,
     dailyQuests: { quests: [], lastRefreshed: null },
     league: { tier: 'Bronze', xp: 0, lastCalculated: null },
+    inventory: { themes: ['default'] },
+    activeTheme: 'default',
 };
 
 export const SHOP_ITEMS = {
@@ -35,203 +38,214 @@ interface UserProgressContextType {
     completeLesson: (lessonId: string, xp: number, tokens: number, worldId: string) => void;
     openChest: (chestId: string, tokens: number) => void;
     toggleDevMode: () => void;
-    purchaseItem: (itemName: keyof typeof SHOP_ITEMS) => void;
+    purchaseItem: (itemName: string, category: 'perk' | 'cosmetic') => void;
     claimQuestReward: (questId: string) => void;
     addFriend: (name: string) => void;
     sendGift: (friendId: string, item: 'streakFreeze') => boolean;
     setStreak: (streak: number) => void;
     updateProfile: (newNickname: string, newAvatar: string) => void;
+    equipTheme: (themeId: string) => void;
 }
 
 const UserProgressContext = createContext<UserProgressContextType | undefined>(undefined);
 
 export const UserProgressProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
+    const { playSuccess } = useSoundEffects();
     const [progress, setProgress] = useState<UserProgress>(() => {
         try {
             const savedProgress = localStorage.getItem('userProgress');
             if (savedProgress) {
                 const parsed = JSON.parse(savedProgress);
                 const hydratedProgress = { ...defaultProgress };
-
-                // Overwrite defaults with saved values, ensuring no 'undefined' properties
-                // and deep-merging nested objects to prevent crashes from old save structures.
                 (Object.keys(defaultProgress) as Array<keyof UserProgress>).forEach(key => {
                     if (parsed[key] !== undefined) {
-                        const existingValue = hydratedProgress[key];
-                        if (typeof existingValue === 'object' && !Array.isArray(existingValue) && existingValue !== null) {
-                            // For nested objects like xpBoosts, dailyQuests, league
-                            // FIX: Cast to 'any' to handle complex union types for dynamic property assignment.
-                            (hydratedProgress as any)[key] = { ...existingValue, ...parsed[key] };
+                        const existingValue = parsed[key];
+                        // Type guard for complex objects to prevent "never" type issues
+                        if (typeof existingValue === 'object' && existingValue !== null && !Array.isArray(existingValue)) {
+                           (hydratedProgress as any)[key] = { ...(hydratedProgress as any)[key], ...existingValue };
                         } else {
-                            // For primitives and arrays
-                            // FIX: Cast to 'any' to handle complex union types for dynamic property assignment.
-                            (hydratedProgress as any)[key] = parsed[key];
+                           (hydratedProgress as any)[key] = existingValue;
                         }
                     }
                 });
                 return hydratedProgress;
             }
-            return defaultProgress;
         } catch (error) {
-            console.error("Failed to load progress from localStorage", error);
-            return defaultProgress;
+            console.error("Failed to load user progress:", error);
         }
+        return defaultProgress;
     });
 
-    // --- Utility Functions ---
-    const generateDailyQuests = (): Quest[] => {
-        const shuffled = [...DAILY_QUEST_DEFINITIONS].sort(() => 0.5 - Math.random());
-        return shuffled.slice(0, 3).map(q => ({ ...q, progress: 0, isClaimed: false }));
-    };
+    useEffect(() => {
+        const today = new Date().toISOString().split('T')[0];
 
-    // --- Effects ---
+        // Check for streak reset
+        if (progress.lastCompletedDate && progress.lastCompletedDate !== today) {
+            const lastDate = new Date(progress.lastCompletedDate);
+            const todayDate = new Date(today);
+            const diffTime = todayDate.getTime() - lastDate.getTime();
+            const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+            
+            if (diffDays > 1) {
+                setProgress(prev => {
+                    if (prev.streakFreezes > 0) {
+                        return { ...prev, streakFreezes: prev.streakFreezes - 1, lastCompletedDate: today };
+                    }
+                    return { ...prev, streak: 0 };
+                });
+            }
+        }
+        
+        // Refresh daily quests
+        if (!progress.dailyQuests.lastRefreshed || progress.dailyQuests.lastRefreshed !== today) {
+            const shuffledQuests = [...DAILY_QUEST_DEFINITIONS].sort(() => 0.5 - Math.random());
+            const newQuests: Quest[] = shuffledQuests.slice(0, 3).map(q => ({
+                ...q,
+                progress: 0,
+                isClaimed: false
+            }));
+            setProgress(prev => ({
+                ...prev,
+                dailyQuests: {
+                    quests: newQuests,
+                    lastRefreshed: today
+                }
+            }));
+        }
+
+    }, []); // Run once on app startup
+
+
     useEffect(() => {
         try {
             localStorage.setItem('userProgress', JSON.stringify(progress));
         } catch (error) {
-            console.error("Failed to save progress to localStorage", error);
+            console.error("Failed to save user progress:", error);
         }
     }, [progress]);
-
-    useEffect(() => {
-        const today = new Date().toISOString().split('T')[0];
-        if (progress.dailyQuests.lastRefreshed !== today) {
-            setProgress(prev => ({
-                ...prev,
-                dailyQuests: {
-                    quests: generateDailyQuests(),
-                    lastRefreshed: today,
-                }
-            }));
-        }
-    }, []); // Runs once on app load
-
-
-    // --- Context Functions ---
+    
     const completeOnboarding = useCallback(() => {
         setProgress(prev => ({ ...prev, hasOnboarded: true }));
     }, []);
 
     const completeLesson = useCallback((lessonId: string, xp: number, tokens: number, worldId: string) => {
         setProgress(prev => {
-            // --- Streak Logic ---
             const today = new Date().toISOString().split('T')[0];
-            const yesterday = new Date(Date.now() - 86400000).toISOString().split('T')[0];
             let newStreak = prev.streak;
-            let newStreakFreezes = prev.streakFreezes;
             if (prev.lastCompletedDate !== today) {
-                if (prev.lastCompletedDate === yesterday) {
-                    newStreak += 1;
-                } else if (prev.streak > 0 && prev.streakFreezes > 0) {
-                    newStreakFreezes -= 1; // Use a freeze
-                } else if (prev.lastCompletedDate !== null) {
-                    newStreak = 1;
-                }
+                newStreak += 1;
             }
-            if (prev.streak === 0) newStreak = 1;
 
-
-            // --- XP Boost Logic ---
-            let finalXp = xp;
-            if (prev.xpBoosts.activeUntil && new Date(prev.xpBoosts.activeUntil) > new Date()) {
-                finalXp = Math.round(xp * 1.5);
-            }
-            const newXp = prev.xp + finalXp;
-            const newLevel = Math.floor(newXp / XP_PER_LEVEL) + 1;
+            const isBoostActive = prev.xpBoosts.activeUntil && new Date(prev.xpBoosts.activeUntil) > new Date();
+            const finalXp = isBoostActive ? Math.round(xp * 1.5) : xp;
             
-            // --- Token Bonus Logic ---
-            const isFirstCompletion = !prev.completedLessons.includes(lessonId);
-            let bonusTokens = 0;
+            const newTotalXp = prev.xp + finalXp;
+            const newLevel = Math.floor(newTotalXp / XP_PER_LEVEL) + 1;
+            
+            const newCompletedLessons = prev.completedLessons.includes(lessonId)
+                ? prev.completedLessons
+                : [...prev.completedLessons, lessonId];
+            
+            // Check for world completion bonus
             const world = WORLDS_DATA.find(w => w.id === worldId);
-            if (world && isFirstCompletion) {
-                const lastLessonInWorld = world.lessons[world.lessons.length - 1];
-                if (lessonId === lastLessonInWorld.id) {
-                    bonusTokens = 20;
-                }
+            const lastLessonInWorld = world?.lessons[world.lessons.length - 1];
+            let bonusTokens = 0;
+            if (lastLessonInWorld?.id === lessonId && !prev.completedLessons.includes(lessonId)) {
+                bonusTokens = 20; // First time completion bonus
             }
-
-            // --- Daily Quest Progress ---
-            const updatedQuests = prev.dailyQuests.quests.map(q => {
-                if (q.isClaimed) return q;
-                let newProgress = q.progress;
-                if (q.type === 'earn_xp') {
-                    newProgress += finalXp;
-                } else if (q.type === 'complete_lessons') {
-                    newProgress += 1;
-                }
-                return { ...q, progress: Math.min(newProgress, q.target) };
+            
+            // Update quest progress
+            const updatedQuests = prev.dailyQuests.quests.map(quest => {
+                if (quest.isClaimed) return quest;
+                let newProgress = quest.progress;
+                if(quest.type === 'earn_xp') newProgress += finalXp;
+                if(quest.type === 'complete_lessons') newProgress += 1;
+                return { ...quest, progress: newProgress };
             });
 
             return {
                 ...prev,
-                xp: newXp,
+                xp: newTotalXp,
                 level: newLevel,
                 tokens: prev.tokens + tokens + bonusTokens,
                 streak: newStreak,
-                streakFreezes: newStreakFreezes,
                 lastCompletedDate: today,
-                completedLessons: isFirstCompletion ? [...prev.completedLessons, lessonId] : prev.completedLessons,
+                completedLessons: newCompletedLessons,
                 dailyQuests: { ...prev.dailyQuests, quests: updatedQuests },
                 league: { ...prev.league, xp: prev.league.xp + finalXp },
             };
         });
     }, []);
 
+    const openChest = useCallback((chestId: string, tokens: number) => {
+        setProgress(prev => ({
+            ...prev,
+            tokens: prev.tokens + tokens,
+            openedChests: [...prev.openedChests, chestId],
+        }));
+    }, []);
+
+    const toggleDevMode = useCallback(() => {
+        setProgress(prev => ({ 
+            ...prev, 
+            isDevMode: !prev.isDevMode,
+            tokens: !prev.isDevMode ? 100000 : prev.tokens,
+        }));
+    }, []);
+
+    const purchaseItem = useCallback((itemId: string, category: 'perk' | 'cosmetic') => {
+        setProgress(prev => {
+            if (category === 'perk') {
+                 const itemInfo = SHOP_ITEMS[itemId as keyof typeof SHOP_ITEMS];
+                if (!itemInfo || prev.tokens < itemInfo.cost) return prev;
+
+                let updatedState = { ...prev, tokens: prev.tokens - itemInfo.cost };
+
+                if (itemId === 'streakFreeze') {
+                    updatedState.streakFreezes += 1;
+                } else if (itemId === 'xpBoost') {
+                    const now = new Date();
+                    const currentEndTime = prev.xpBoosts.activeUntil ? new Date(prev.xpBoosts.activeUntil) : now;
+                    const newEndTime = new Date(Math.max(now.getTime(), currentEndTime.getTime()) + 10 * 60 * 1000); // Add 10 mins
+                    updatedState.xpBoosts = {
+                        count: prev.xpBoosts.count + 1,
+                        activeUntil: newEndTime.toISOString(),
+                    };
+                } else if (itemId === 'classCredit') {
+                    updatedState.classCredits += 1;
+                }
+                return updatedState;
+            } else if (category === 'cosmetic') {
+                const cosmetic = SHOP_COSMETICS.find(c => c.id === itemId);
+                if (!cosmetic || prev.tokens < cosmetic.cost || prev.inventory.themes.includes(itemId)) return prev;
+
+                return {
+                    ...prev,
+                    tokens: prev.tokens - cosmetic.cost,
+                    inventory: {
+                        ...prev.inventory,
+                        themes: [...prev.inventory.themes, itemId],
+                    }
+                }
+            }
+            return prev;
+        });
+    }, []);
+
     const claimQuestReward = useCallback((questId: string) => {
         setProgress(prev => {
             const quest = prev.dailyQuests.quests.find(q => q.id === questId);
-            if (!quest || quest.isClaimed || quest.progress < quest.target) {
-                return prev;
-            }
-
-            const updatedQuests = prev.dailyQuests.quests.map(q =>
+            if (!quest || quest.isClaimed || quest.progress < quest.target) return prev;
+            
+            const updatedQuests = prev.dailyQuests.quests.map(q => 
                 q.id === questId ? { ...q, isClaimed: true } : q
             );
 
             return {
                 ...prev,
                 tokens: prev.tokens + quest.reward.tokens,
-                dailyQuests: { ...prev.dailyQuests, quests: updatedQuests },
+                dailyQuests: { ...prev.dailyQuests, quests: updatedQuests }
             };
-        });
-    }, []);
-
-    const openChest = useCallback((chestId: string, tokens: number) => {
-        // This function can be expanded for future use
-    }, []);
-    
-    const toggleDevMode = useCallback(() => {
-        setProgress(prev => ({
-            ...prev,
-            isDevMode: !prev.isDevMode,
-            tokens: !prev.isDevMode ? 100000 : prev.tokens,
-        }));
-    }, []);
-
-    const purchaseItem = useCallback((itemName: keyof typeof SHOP_ITEMS) => {
-        setProgress(prev => {
-            const item = SHOP_ITEMS[itemName];
-            if (prev.tokens < item.cost) return prev;
-
-            const newTokens = prev.tokens - item.cost;
-            let updatedState: UserProgress = { ...prev, tokens: newTokens };
-
-            switch(itemName) {
-                case 'streakFreeze':
-                    updatedState.streakFreezes = prev.streakFreezes + 1;
-                    break;
-                case 'xpBoost':
-                    const currentActiveUntil = prev.xpBoosts.activeUntil ? new Date(prev.xpBoosts.activeUntil) : new Date(0);
-                    const now = new Date();
-                    const startTime = now > currentActiveUntil ? now : currentActiveUntil;
-                    const newActiveUntil = new Date(startTime.getTime() + 10 * 60 * 1000);
-                    updatedState.xpBoosts = { count: prev.xpBoosts.count + 1, activeUntil: newActiveUntil.toISOString() };
-                    break;
-                case 'classCredit':
-                    updatedState.classCredits = prev.classCredits + 1;
-                    break;
-            }
-            return updatedState;
         });
     }, []);
 
@@ -239,56 +253,66 @@ export const UserProgressProvider: React.FC<{ children: ReactNode }> = ({ childr
         setProgress(prev => {
             const newFriend: Friend = {
                 id: `f${Date.now()}`,
-                name: name,
-                xp: Math.floor(Math.random() * 2000),
-                avatar: '🙂',
+                name,
+                xp: 0,
+                avatar: '🧑‍🎤',
             };
             return { ...prev, friends: [...prev.friends, newFriend] };
         });
     }, []);
 
-    const sendGift = useCallback((friendId: string, item: 'streakFreeze'): boolean => {
+    const sendGift = useCallback((friendId: string, item: 'streakFreeze') => {
         let success = false;
         setProgress(prev => {
             if (item === 'streakFreeze' && prev.streakFreezes > 0) {
                 success = true;
-                // In a real app, this would send a notification to the friend
                 return { ...prev, streakFreezes: prev.streakFreezes - 1 };
             }
             return prev;
         });
         return success;
     }, []);
-
-    const setStreak = useCallback((newStreak: number) => {
-        if (!isNaN(newStreak) && newStreak >= 0) {
-            setProgress(prev => ({
-                ...prev,
-                streak: newStreak,
-            }));
-        }
+    
+    const setStreak = useCallback((streak: number) => {
+        setProgress(prev => ({ ...prev, streak }));
     }, []);
-
+    
     const updateProfile = useCallback((newNickname: string, newAvatar: string) => {
-        setProgress(prev => ({
-            ...prev,
-            nickname: newNickname,
-            avatar: newAvatar,
-        }));
+        setProgress(prev => ({ ...prev, nickname: newNickname, avatar: newAvatar }));
     }, []);
 
-    const value = { progress, completeOnboarding, completeLesson, openChest, toggleDevMode, purchaseItem, claimQuestReward, addFriend, sendGift, setStreak, updateProfile };
+    const equipTheme = useCallback((themeId: string) => {
+        setProgress(prev => {
+            if (prev.inventory.themes.includes(themeId)) {
+                return { ...prev, activeTheme: themeId };
+            }
+            return prev;
+        });
+    }, []);
 
     return (
-        <UserProgressContext.Provider value={value}>
+        <UserProgressContext.Provider value={{
+            progress,
+            completeOnboarding,
+            completeLesson,
+            openChest,
+            toggleDevMode,
+            purchaseItem,
+            claimQuestReward,
+            addFriend,
+            sendGift,
+            setStreak,
+            updateProfile,
+            equipTheme,
+        }}>
             {children}
         </UserProgressContext.Provider>
     );
 };
 
-export const useUserProgress = (): UserProgressContextType => {
+export const useUserProgress = () => {
     const context = useContext(UserProgressContext);
-    if (!context) {
+    if (context === undefined) {
         throw new Error('useUserProgress must be used within a UserProgressProvider');
     }
     return context;

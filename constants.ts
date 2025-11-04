@@ -84,6 +84,33 @@ export const SELECTABLE_AVATARS = [
     '🎹', '🎸', '🎤', '🥁', '🎷', '🎺', '🎻', '🎧', '🎶', '🎵', '🎼', '🧑‍🎤'
 ];
 
+export const SHOP_COSMETICS = [
+    {
+        id: 'default',
+        name: 'Flurn Buddy Green',
+        cost: 0,
+        colors: {
+            bgGradient: 'from-slate-900 to-slate-800',
+        }
+    },
+    {
+        id: 'sunrise',
+        name: 'Sunrise',
+        cost: 500,
+        colors: {
+            bgGradient: 'from-orange-800 to-amber-900',
+        }
+    },
+    {
+        id: 'synthwave',
+        name: 'Synthwave',
+        cost: 500,
+        colors: {
+            bgGradient: 'from-indigo-900 to-purple-900',
+        }
+    },
+];
+
 // --- New Feature Constants ---
 
 export const DAILY_QUEST_DEFINITIONS: Omit<Quest, 'progress' | 'isClaimed'>[] = [
@@ -117,4 +144,59 @@ export const MOCK_LEAGUE_MEMBERS = [ // Static mock data for league view
     { name: 'Treble Maker', xp: 95, avatar: '😈' },
     { name: 'Bass Ace', xp: 70, avatar: '😎' },
     { name: 'Just Starting', xp: 20, avatar: '🙂' },
+];
+
+export const VERSION_LOG = [
+    {
+        version: '1.0.0',
+        date: 'Initial Release',
+        notes: [
+            'Core learning path with Note & Chord Identification.',
+            'AI Theory Tutor powered by Gemini.',
+            'XP, Levels, and basic progress tracking.',
+        ]
+    },
+    {
+        version: '1.1.0',
+        date: 'The Social & Gamification Update',
+        notes: [
+            'Introduced the Shop with Streak Freezes & XP Boosts.',
+            'Replaced "Notes" currency with "Tokens".',
+            'Added Daily Quests for rewards.',
+            'Launched the "Note Garden" to visualize streaks.',
+            'Overhauled Leaderboards into competitive Weekly Leagues.',
+            'Added Friends list, gifting, and friend-based leaderboards.',
+        ]
+    },
+    {
+        version: '1.2.0',
+        date: 'The Content & Creativity Update',
+        notes: [
+            'Introduced Buddy the mascot and a story.',
+            'Added the "Songbook" to learn real songs.',
+            'Launched the "Practice Hub" with mini-games: Ear Training, Sight-Reading Rush, and Chord Invaders.',
+        ]
+    },
+    {
+        version: '1.3.0',
+        date: 'The "Never-Before-Seen" Update',
+        notes: [
+            'Launched the "Buddy Hub" as a central place for AI features.',
+            'Added Performance Coach (simulated posture analysis).',
+            'Added Practice Weaver (personalized lesson generation).',
+            'Added Buddy\'s Beat Maker for creative expression.',
+            'Introduced "Magic Keys" AR practice mode.',
+            'UI Overhaul: Shop moved to Profile, Buddy gets a dedicated tab.',
+        ]
+    },
+    {
+        version: '1.4.0',
+        date: 'The Polish & Syllabus Update',
+        notes: [
+            'Expanded lessons to align with Trinity Grade 0 syllabus.',
+            'Added UI sound effects and haptic feedback.',
+            'Added cosmetic App Themes in the Shop.',
+            'Added profile customization (nickname & avatar).',
+        ]
+    },
 ];

@@ -1,11 +1,20 @@
 import React from 'react';
 import { useUserProgress } from '../context/UserProgressContext';
 import { Quest } from '../types';
+import { useSoundEffects } from '../audio/useSoundEffects';
 
 const QuestItem: React.FC<{ quest: Quest }> = ({ quest }) => {
     const { claimQuestReward } = useUserProgress();
+    const { playSuccess } = useSoundEffects();
     const isComplete = quest.progress >= quest.target;
     const progressPercentage = (quest.progress / quest.target) * 100;
+
+    const handleClaim = () => {
+        if (isComplete && !quest.isClaimed) {
+            playSuccess();
+            claimQuestReward(quest.id);
+        }
+    };
 
     return (
         <div className="flex items-center space-x-4">
@@ -16,7 +25,7 @@ const QuestItem: React.FC<{ quest: Quest }> = ({ quest }) => {
                 </div>
             </div>
             <button
-                onClick={() => claimQuestReward(quest.id)}
+                onClick={handleClaim}
                 disabled={!isComplete || quest.isClaimed}
                 className={`px-4 py-1.5 rounded-lg font-bold text-sm transition-colors ${
                     isComplete && !quest.isClaimed
