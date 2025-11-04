@@ -8,17 +8,17 @@ interface OnboardingScreenProps {
 }
 
 const OnboardingScreen: React.FC<OnboardingScreenProps> = ({ onComplete }) => {
-    const { progress, completeOnboarding, updateProfile } = useUserProgress();
+    const { progress, completeOnboarding } = useUserProgress();
     const { playClick, playSuccess } = useSoundEffects();
     const [step, setStep] = useState(1);
-    const [tempNickname, setTempNickname] = useState(progress.nickname);
-    const [tempAvatar, setTempAvatar] = useState(progress.avatar);
+    const [tempNickname, setTempNickname] = useState('New Pianist');
+    const [tempAvatar, setTempAvatar] = useState('🎹');
 
     const handleProfileSubmit = () => {
         if (tempNickname.trim()) {
             playSuccess();
-            updateProfile(tempNickname.trim(), tempAvatar);
-            completeOnboarding();
+            // Pass nickname and avatar to be saved with onboarding status
+            completeOnboarding(tempNickname.trim(), tempAvatar);
             onComplete();
         }
     };

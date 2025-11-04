@@ -1,7 +1,9 @@
-import React, { createContext, useContext, useState, useEffect, ReactNode, useCallback } from 'react';
+import React, { createContext, useContext, useState, useEffect, ReactNode, useCallback, useRef } from 'react';
 import { UserProgress, Quest, Friend } from '../types';
 import { XP_PER_LEVEL, WORLDS_DATA, DAILY_QUEST_DEFINITIONS, MOCK_INITIAL_FRIENDS, SHOP_COSMETICS } from '../constants';
 import { useSoundEffects } from '../audio/useSoundEffects';
+import { useAuth } from '../AuthContext';
+import { getUserProgressFromDb, updateUserProgressInDb } from '../firebase';
 
 const defaultProgress: UserProgress = {
     hasOnboarded: false,
@@ -34,7 +36,8 @@ export const SHOP_ITEMS = {
 
 interface UserProgressContextType {
     progress: UserProgress;
-    completeOnboarding: () => void;
+    isLoading: boolean;
+    completeOnboarding: (nickname: string, avatar: string) => void;
     completeLesson: (lessonId: string, xp: number, tokens: number, worldId: string) => void;
     openChest: (chestId: string, tokens: number) => void;
     toggleDevMode: () => void;
@@ -50,82 +53,79 @@ interface UserProgressContextType {
 const UserProgressContext = createContext<UserProgressContextType | undefined>(undefined);
 
 export const UserProgressProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
+    const { currentUser } = useAuth();
     const { playSuccess } = useSoundEffects();
-    const [progress, setProgress] = useState<UserProgress>(() => {
-        try {
-            const savedProgress = localStorage.getItem('userProgress');
-            if (savedProgress) {
-                const parsed = JSON.parse(savedProgress);
-                const hydratedProgress = { ...defaultProgress };
-                (Object.keys(defaultProgress) as Array<keyof UserProgress>).forEach(key => {
-                    if (parsed[key] !== undefined) {
-                        const existingValue = parsed[key];
-                        // Type guard for complex objects to prevent "never" type issues
-                        if (typeof existingValue === 'object' && existingValue !== null && !Array.isArray(existingValue)) {
-                           (hydratedProgress as any)[key] = { ...(hydratedProgress as any)[key], ...existingValue };
-                        } else {
-                           (hydratedProgress as any)[key] = existingValue;
-                        }
-                    }
-                });
-                return hydratedProgress;
-            }
-        } catch (error) {
-            console.error("Failed to load user progress:", error);
-        }
-        return defaultProgress;
-    });
+    const [progress, setProgress] = useState<UserProgress>(defaultProgress);
+    const [isLoading, setIsLoading] = useState(true);
+    const isInitialLoad = useRef(true);
 
+    // Effect to load data from DB when user logs in
     useEffect(() => {
+        if (currentUser) {
+            setIsLoading(true);
+            isInitialLoad.current = true;
+            getUserProgressFromDb(currentUser.uid, defaultProgress).then(savedProgress => {
+                setProgress(savedProgress);
+                setIsLoading(false);
+                setTimeout(() => { isInitialLoad.current = false; }, 500);
+            });
+        }
+    }, [currentUser]);
+
+    // Effect to save data to DB on change
+    useEffect(() => {
+        if (currentUser && !isLoading && !isInitialLoad.current) {
+            updateUserProgressInDb(currentUser.uid, progress);
+        }
+    }, [progress, currentUser, isLoading]);
+
+    // Effect for time-based logic (streaks, quests)
+    useEffect(() => {
+        if (isLoading) return; // Don't run this until progress is loaded
+
         const today = new Date().toISOString().split('T')[0];
+        let needsUpdate = false;
+        let updatedProgress = { ...progress };
 
         // Check for streak reset
-        if (progress.lastCompletedDate && progress.lastCompletedDate !== today) {
-            const lastDate = new Date(progress.lastCompletedDate);
+        if (updatedProgress.lastCompletedDate && updatedProgress.lastCompletedDate !== today) {
+            const lastDate = new Date(updatedProgress.lastCompletedDate);
             const todayDate = new Date(today);
             const diffTime = todayDate.getTime() - lastDate.getTime();
             const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
             
             if (diffDays > 1) {
-                setProgress(prev => {
-                    if (prev.streakFreezes > 0) {
-                        return { ...prev, streakFreezes: prev.streakFreezes - 1, lastCompletedDate: today };
-                    }
-                    return { ...prev, streak: 0 };
-                });
+                if (updatedProgress.streakFreezes > 0) {
+                    updatedProgress.streakFreezes -= 1;
+                    updatedProgress.lastCompletedDate = today; // Consider freeze day as "active"
+                } else {
+                    updatedProgress.streak = 0;
+                }
+                needsUpdate = true;
             }
         }
         
         // Refresh daily quests
-        if (!progress.dailyQuests.lastRefreshed || progress.dailyQuests.lastRefreshed !== today) {
+        if (!updatedProgress.dailyQuests.lastRefreshed || updatedProgress.dailyQuests.lastRefreshed !== today) {
             const shuffledQuests = [...DAILY_QUEST_DEFINITIONS].sort(() => 0.5 - Math.random());
             const newQuests: Quest[] = shuffledQuests.slice(0, 3).map(q => ({
                 ...q,
                 progress: 0,
                 isClaimed: false
             }));
-            setProgress(prev => ({
-                ...prev,
-                dailyQuests: {
-                    quests: newQuests,
-                    lastRefreshed: today
-                }
-            }));
+            updatedProgress.dailyQuests = { quests: newQuests, lastRefreshed: today };
+            needsUpdate = true;
         }
 
-    }, []); // Run once on app startup
-
-
-    useEffect(() => {
-        try {
-            localStorage.setItem('userProgress', JSON.stringify(progress));
-        } catch (error) {
-            console.error("Failed to save user progress:", error);
+        if (needsUpdate) {
+            setProgress(updatedProgress);
         }
-    }, [progress]);
+
+    }, [isLoading]); 
+
     
-    const completeOnboarding = useCallback(() => {
-        setProgress(prev => ({ ...prev, hasOnboarded: true }));
+    const completeOnboarding = useCallback((nickname: string, avatar: string) => {
+        setProgress(prev => ({ ...prev, hasOnboarded: true, nickname, avatar }));
     }, []);
 
     const completeLesson = useCallback((lessonId: string, xp: number, tokens: number, worldId: string) => {
@@ -146,15 +146,13 @@ export const UserProgressProvider: React.FC<{ children: ReactNode }> = ({ childr
                 ? prev.completedLessons
                 : [...prev.completedLessons, lessonId];
             
-            // Check for world completion bonus
             const world = WORLDS_DATA.find(w => w.id === worldId);
             const lastLessonInWorld = world?.lessons[world.lessons.length - 1];
             let bonusTokens = 0;
             if (lastLessonInWorld?.id === lessonId && !prev.completedLessons.includes(lessonId)) {
-                bonusTokens = 20; // First time completion bonus
+                bonusTokens = 20;
             }
             
-            // Update quest progress
             const updatedQuests = prev.dailyQuests.quests.map(quest => {
                 if (quest.isClaimed) return quest;
                 let newProgress = quest.progress;
@@ -198,34 +196,25 @@ export const UserProgressProvider: React.FC<{ children: ReactNode }> = ({ childr
             if (category === 'perk') {
                  const itemInfo = SHOP_ITEMS[itemId as keyof typeof SHOP_ITEMS];
                 if (!itemInfo || prev.tokens < itemInfo.cost) return prev;
-
                 let updatedState = { ...prev, tokens: prev.tokens - itemInfo.cost };
-
-                if (itemId === 'streakFreeze') {
-                    updatedState.streakFreezes += 1;
-                } else if (itemId === 'xpBoost') {
+                if (itemId === 'streakFreeze') updatedState.streakFreezes += 1;
+                else if (itemId === 'xpBoost') {
                     const now = new Date();
                     const currentEndTime = prev.xpBoosts.activeUntil ? new Date(prev.xpBoosts.activeUntil) : now;
-                    const newEndTime = new Date(Math.max(now.getTime(), currentEndTime.getTime()) + 10 * 60 * 1000); // Add 10 mins
+                    const newEndTime = new Date(Math.max(now.getTime(), currentEndTime.getTime()) + 10 * 60 * 1000);
                     updatedState.xpBoosts = {
                         count: prev.xpBoosts.count + 1,
                         activeUntil: newEndTime.toISOString(),
                     };
-                } else if (itemId === 'classCredit') {
-                    updatedState.classCredits += 1;
-                }
+                } else if (itemId === 'classCredit') updatedState.classCredits += 1;
                 return updatedState;
             } else if (category === 'cosmetic') {
                 const cosmetic = SHOP_COSMETICS.find(c => c.id === itemId);
                 if (!cosmetic || prev.tokens < cosmetic.cost || prev.inventory.themes.includes(itemId)) return prev;
-
                 return {
                     ...prev,
                     tokens: prev.tokens - cosmetic.cost,
-                    inventory: {
-                        ...prev.inventory,
-                        themes: [...prev.inventory.themes, itemId],
-                    }
+                    inventory: { ...prev.inventory, themes: [...prev.inventory.themes, itemId] }
                 }
             }
             return prev;
@@ -236,11 +225,7 @@ export const UserProgressProvider: React.FC<{ children: ReactNode }> = ({ childr
         setProgress(prev => {
             const quest = prev.dailyQuests.quests.find(q => q.id === questId);
             if (!quest || quest.isClaimed || quest.progress < quest.target) return prev;
-            
-            const updatedQuests = prev.dailyQuests.quests.map(q => 
-                q.id === questId ? { ...q, isClaimed: true } : q
-            );
-
+            const updatedQuests = prev.dailyQuests.quests.map(q => q.id === questId ? { ...q, isClaimed: true } : q);
             return {
                 ...prev,
                 tokens: prev.tokens + quest.reward.tokens,
@@ -251,12 +236,7 @@ export const UserProgressProvider: React.FC<{ children: ReactNode }> = ({ childr
 
     const addFriend = useCallback((name: string) => {
         setProgress(prev => {
-            const newFriend: Friend = {
-                id: `f${Date.now()}`,
-                name,
-                xp: 0,
-                avatar: '🧑‍🎤',
-            };
+            const newFriend: Friend = { id: `f${Date.now()}`, name, xp: 0, avatar: '🧑‍🎤' };
             return { ...prev, friends: [...prev.friends, newFriend] };
         });
     }, []);
@@ -273,19 +253,11 @@ export const UserProgressProvider: React.FC<{ children: ReactNode }> = ({ childr
         return success;
     }, []);
     
-    const setStreak = useCallback((streak: number) => {
-        setProgress(prev => ({ ...prev, streak }));
-    }, []);
-    
-    const updateProfile = useCallback((newNickname: string, newAvatar: string) => {
-        setProgress(prev => ({ ...prev, nickname: newNickname, avatar: newAvatar }));
-    }, []);
-
+    const setStreak = useCallback((streak: number) => setProgress(prev => ({ ...prev, streak })), []);
+    const updateProfile = useCallback((newNickname: string, newAvatar: string) => setProgress(prev => ({ ...prev, nickname: newNickname, avatar: newAvatar })), []);
     const equipTheme = useCallback((themeId: string) => {
         setProgress(prev => {
-            if (prev.inventory.themes.includes(themeId)) {
-                return { ...prev, activeTheme: themeId };
-            }
+            if (prev.inventory.themes.includes(themeId)) return { ...prev, activeTheme: themeId };
             return prev;
         });
     }, []);
@@ -293,6 +265,7 @@ export const UserProgressProvider: React.FC<{ children: ReactNode }> = ({ childr
     return (
         <UserProgressContext.Provider value={{
             progress,
+            isLoading,
             completeOnboarding,
             completeLesson,
             openChest,

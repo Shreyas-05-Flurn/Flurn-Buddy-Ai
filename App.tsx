@@ -1,5 +1,6 @@
 import React, { useState, useCallback } from 'react';
 import { UserProgressProvider, useUserProgress } from './context/UserProgressContext';
+import { AuthProvider, useAuth } from './AuthContext';
 import OnboardingScreen from './screens/OnboardingScreen';
 import HomeScreen from './screens/HomeScreen';
 import LessonScreen from './screens/LessonScreen';
@@ -8,17 +9,37 @@ import LeaderboardScreen from './screens/LeaderboardScreen';
 import PracticeHubScreen from './screens/PracticeHubScreen';
 import BuddyScreen from './screens/BuddyScreen';
 import BottomNav from './components/BottomNav';
-// FIX: Import Screen, Lesson, and World types from the corrected types.ts file.
+import AuthScreen from './screens/AuthScreen';
 import { Lesson, World, Screen } from './types';
 import { SHOP_COSMETICS } from './constants';
 
-// FIX: Screen type is now imported from types.ts to avoid duplication and act as a single source of truth.
-
 const App: React.FC = () => {
     return (
+        <AuthProvider>
+            <AppRouter />
+        </AuthProvider>
+    );
+};
+
+const AppRouter: React.FC = () => {
+    const { currentUser, loading } = useAuth();
+
+    if (loading) {
+        return (
+            <div className="w-full h-screen flex items-center justify-center bg-slate-900">
+                <span className="text-4xl animate-pulse">🎶</span>
+            </div>
+        );
+    }
+    
+    // If user is logged in, provide the UserProgress and show the main app.
+    // Otherwise, show the authentication screen.
+    return currentUser ? (
         <UserProgressProvider>
             <MainApp />
         </UserProgressProvider>
+    ) : (
+        <AuthScreen />
     );
 };
 
@@ -36,13 +57,15 @@ const MainApp: React.FC = () => {
         setCurrentScreen('lesson');
     }, []);
 
-    const endLesson = useCallback((completed: boolean) => {
-        if (completed && activeLesson) {
-             // The completion logic is handled inside LessonScreen via context
-        }
+    const endLesson = useCallback(() => {
         setActiveLesson(null);
         setCurrentScreen('home');
-    }, [activeLesson]);
+    }, []);
+
+    // If progress is loaded but user hasn't onboarded, force onboarding screen.
+    if (progress.hasOnboarded === false && currentScreen !== 'onboarding') {
+         setCurrentScreen('onboarding');
+    }
 
     const renderScreen = () => {
         switch (currentScreen) {
@@ -54,7 +77,6 @@ const MainApp: React.FC = () => {
                 if (activeLesson) {
                     return <LessonScreen world={activeLesson.world} lesson={activeLesson.lesson} onComplete={endLesson} />;
                 }
-                // Fallback to home if no active lesson
                 setCurrentScreen('home'); 
                 return <HomeScreen onStartLesson={startLesson} />;
             case 'profile':
@@ -71,7 +93,6 @@ const MainApp: React.FC = () => {
     };
     
     const showNav = currentScreen !== 'onboarding' && currentScreen !== 'lesson';
-
     const activeTheme = SHOP_COSMETICS.find(theme => theme.id === progress.activeTheme) || SHOP_COSMETICS[0];
 
     return (

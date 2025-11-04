@@ -26,6 +26,7 @@ const MagicKeysGame: React.FC<MagicKeysGameProps> = ({ onExit }) => {
     const [notes, setNotes] = useState<FallingNote[]>([]);
     const [score, setScore] = useState(0);
     const [stream, setStream] = useState<MediaStream | null>(null);
+    const [error, setError] = useState<string | null>(null);
 
     const videoRef = useRef<HTMLVideoElement>(null);
     const gameLoopRef = useRef<number | null>(null);
@@ -58,6 +59,7 @@ const MagicKeysGame: React.FC<MagicKeysGameProps> = ({ onExit }) => {
     }, [spawnNote]);
 
     const startGame = async () => {
+        setError(null);
         try {
             const mediaStream = await navigator.mediaDevices.getUserMedia({ video: true });
             setStream(mediaStream);
@@ -68,7 +70,8 @@ const MagicKeysGame: React.FC<MagicKeysGameProps> = ({ onExit }) => {
             setNotes([]);
             setGameState('playing');
         } catch (err) {
-            alert("Could not access camera. Please check permissions.");
+            console.error("Magic Keys camera error:", err);
+            setError("Could not access camera. Please check permissions and ensure no other app is using it.");
         }
     };
     
@@ -98,8 +101,9 @@ const MagicKeysGame: React.FC<MagicKeysGameProps> = ({ onExit }) => {
                 
                 {gameState !== 'playing' && (
                     <div className="absolute inset-0 bg-black/70 flex items-center justify-center z-10">
-                        <div className="text-center">
+                        <div className="text-center p-4">
                             <p className="text-lg text-slate-300 mb-6">Point your camera at your keyboard and play the falling notes!</p>
+                            {error && <p className="text-red-400 mb-4">{error}</p>}
                             <button onClick={startGame} className="bg-green-500 text-white font-bold py-3 px-6 rounded-lg">Start Game</button>
                         </div>
                     </div>

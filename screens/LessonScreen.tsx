@@ -28,14 +28,27 @@ const LessonScreen: React.FC<LessonScreenProps> = ({ world, lesson, onComplete }
     const { detectedNotes, isListening, startListening, stopListening, error } = usePitchDetection();
     const feedbackTimeoutRef = useRef<number | null>(null);
 
-    // FIX: Intelligently handle song-like lessons, even if they are 'boss' type, by safely checking properties.
-    const isSongLike = (lesson.type === 'song' || lesson.type === 'boss') &&
+    // FIX: The original one-liner for these variables caused a TypeScript error because the type of 'lesson.content'
+    // was not being narrowed correctly. This 'if/else' block ensures proper type narrowing before accessing properties.
+    let lessonContent: typeof lesson.content | string[];
+    let songName: string | null = null;
+
+    if (
+        (lesson.type === 'song' || lesson.type === 'boss') &&
+        lesson.content &&
         typeof lesson.content === 'object' &&
         !Array.isArray(lesson.content) &&
         'notes' in lesson.content &&
-        'name' in lesson.content;
-    const lessonContent = isSongLike ? lesson.content.notes : lesson.content;
-    const songName = isSongLike ? lesson.content.name : null;
+        'name' in lesson.content
+    ) {
+        // This is a SongContent-like lesson (e.g., "Twinkle Twinkle"). We should iterate through the notes.
+        lessonContent = (lesson.content as SongContent).notes;
+        songName = (lesson.content as SongContent).name;
+    } else {
+        // This is any other type of lesson. The content itself is the list of items (or a single item for chords).
+        lessonContent = lesson.content;
+    }
+    
     const totalItems = Array.isArray(lessonContent) ? lessonContent.length : 1;
     
     const progressPercentage = (currentIndex / totalItems) * 100;

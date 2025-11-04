@@ -7,16 +7,15 @@ interface PerformanceCoachProps {
 const PerformanceCoach: React.FC<PerformanceCoachProps> = ({ onExit }) => {
     const videoRef = useRef<HTMLVideoElement>(null);
     const [feedback, setFeedback] = useState<string>("Initializing camera...");
-    const [stream, setStream] = useState<MediaStream | null>(null);
-
+    
     useEffect(() => {
         let isMounted = true;
+        let mediaStream: MediaStream | null = null;
 
         const startCamera = async () => {
             try {
-                const mediaStream = await navigator.mediaDevices.getUserMedia({ video: true });
+                mediaStream = await navigator.mediaDevices.getUserMedia({ video: true });
                 if (isMounted) {
-                    setStream(mediaStream);
                     if (videoRef.current) {
                         videoRef.current.srcObject = mediaStream;
                     }
@@ -34,11 +33,11 @@ const PerformanceCoach: React.FC<PerformanceCoachProps> = ({ onExit }) => {
 
         return () => {
             isMounted = false;
-            if (stream) {
-                stream.getTracks().forEach(track => track.stop());
+            if (mediaStream) {
+                mediaStream.getTracks().forEach(track => track.stop());
             }
         };
-    }, []); // Empty dependency array ensures this runs once on mount
+    }, []);
 
     const handleAnalyze = () => {
         setFeedback("Analyzing...");
@@ -73,7 +72,7 @@ const PerformanceCoach: React.FC<PerformanceCoachProps> = ({ onExit }) => {
 
             <button
                 onClick={handleAnalyze}
-                disabled={!stream}
+                disabled={!videoRef.current?.srcObject}
                 className="w-full bg-green-500 text-white font-bold py-4 rounded-lg disabled:bg-slate-600"
             >
                 Analyze My Posture
