@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
-import { Lesson, World, QuizQuestion } from '../types';
+import { Lesson, World, QuizQuestion, ChordContent, SongContent } from '../types';
 import { useUserProgress } from '../context/UserProgressContext';
 import PianoKeyboard from '../components/PianoKeyboard';
 import Staff from '../components/Staff';
@@ -28,8 +28,12 @@ const LessonScreen: React.FC<LessonScreenProps> = ({ world, lesson, onComplete }
     const { detectedNotes, isListening, startListening, stopListening, error } = usePitchDetection();
     const feedbackTimeoutRef = useRef<number | null>(null);
 
-    // FIX: Intelligently handle song-like lessons, even if they are 'boss' type.
-    const isSongLike = lesson.type === 'song' || (lesson.type === 'boss' && typeof lesson.content === 'object' && lesson.content.notes);
+    // FIX: Intelligently handle song-like lessons, even if they are 'boss' type, by safely checking properties.
+    const isSongLike = (lesson.type === 'song' || lesson.type === 'boss') &&
+        typeof lesson.content === 'object' &&
+        !Array.isArray(lesson.content) &&
+        'notes' in lesson.content &&
+        'name' in lesson.content;
     const lessonContent = isSongLike ? lesson.content.notes : lesson.content;
     const songName = isSongLike ? lesson.content.name : null;
     const totalItems = Array.isArray(lessonContent) ? lessonContent.length : 1;
@@ -90,8 +94,9 @@ const LessonScreen: React.FC<LessonScreenProps> = ({ world, lesson, onComplete }
     
     // Effect for chord detection (correctness and mistakes)
     useEffect(() => {
-        if (lesson.type === 'chord_identification' && isListening) {
-            const targetNoteNames = new Set((lesson.content.notes as string[]).map(n => n.slice(0, -1)));
+        // FIX: Add a type guard to ensure lesson.content has a 'notes' property before accessing it.
+        if (lesson.type === 'chord_identification' && isListening && typeof lesson.content === 'object' && !Array.isArray(lesson.content) && 'notes' in lesson.content) {
+            const targetNoteNames = new Set(lesson.content.notes.map(n => n.slice(0, -1)));
             const detectedNoteNames = new Set(detectedNotes.map(n => n.slice(0, -1)));
 
             const allNotesFound = [...targetNoteNames].every(note => detectedNoteNames.has(note));
@@ -132,8 +137,8 @@ const LessonScreen: React.FC<LessonScreenProps> = ({ world, lesson, onComplete }
                 return (
                     <>
                         {songName && <p className="text-xl text-center text-slate-400 mb-2">Playing: {songName}</p>}
-                        <p className="text-2xl text-center text-slate-300 mb-6">Play the next note: <span className="font-bold text-green-400">{currentItem}</span></p>
-                        <Staff note={currentItem} />
+                        <p className="text-2xl text-center text-slate-300 mb-6">Play the next note: <span className="font-bold text-green-400">{currentItem as string}</span></p>
+                        <Staff note={currentItem as string} />
                         <PianoKeyboard 
                             onNotePress={(note) => {
                                 if (note === currentItem) {
@@ -142,15 +147,15 @@ const LessonScreen: React.FC<LessonScreenProps> = ({ world, lesson, onComplete }
                                     handleIncorrect();
                                 }
                             }}
-                            highlightedNote={isCorrect !== null ? currentItem : undefined}
-                            correctNote={isCorrect === true ? currentItem : undefined}
-                            incorrectNote={isCorrect === false ? currentItem : undefined}
-                            clueNotes={showClue ? [currentItem] : undefined}
+                            highlightedNote={isCorrect !== null ? (currentItem as string) : undefined}
+                            correctNote={isCorrect === true ? (currentItem as string) : undefined}
+                            incorrectNote={isCorrect === false ? (currentItem as string) : undefined}
+                            clueNotes={showClue ? [currentItem as string] : undefined}
                         />
                     </>
                 );
             case 'quiz':
-                const question: QuizQuestion = currentItem;
+                const question: QuizQuestion = currentItem as QuizQuestion;
                 return (
                      <>
                         <p className="text-2xl text-center text-slate-300 mb-6">{question.question}</p>
@@ -168,12 +173,13 @@ const LessonScreen: React.FC<LessonScreenProps> = ({ world, lesson, onComplete }
                     </>
                 );
             case 'chord_identification':
-                const targetChordNotes = currentItem.notes as string[];
+                const chordContent = currentItem as ChordContent;
+                const targetChordNotes = chordContent.notes;
                 const targetNoteNames = targetChordNotes.map(n => n.slice(0, -1));
                 const detectedNoteNames = new Set(detectedNotes.map(n => n.slice(0, -1)));
                 return (
                     <div className="flex flex-col items-center justify-center text-center">
-                        <p className="text-2xl text-slate-300 mb-2">Play the <span className="font-bold text-green-400">{currentItem.name}</span> chord.</p>
+                        <p className="text-2xl text-slate-300 mb-2">Play the <span className="font-bold text-green-400">{chordContent.name}</span> chord.</p>
                         
                         <div className="flex space-x-2 mb-6">
                             {targetNoteNames.map(note => (
@@ -203,7 +209,7 @@ const LessonScreen: React.FC<LessonScreenProps> = ({ world, lesson, onComplete }
                                 <p className="text-center text-green-300 font-semibold mb-2">Hint: Play these notes!</p>
                                 <PianoKeyboard
                                     onNotePress={() => {}}
-                                    clueNotes={currentItem.notes}
+                                    clueNotes={chordContent.notes}
                                 />
                             </div>
                         )}
