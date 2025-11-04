@@ -1,0 +1,8 @@
+{
+  "name": "Flurn Buddy",
+  "description": "A gamified web application inspired by Duolingo for learning keyboard (piano) skills. It features a mobile-only design, interactive lessons, real-time feedback, and progress tracking to make learning piano fun and engaging.",
+  "requestFramePermissions": [
+    "microphone",
+    "camera"
+  ]
+}
