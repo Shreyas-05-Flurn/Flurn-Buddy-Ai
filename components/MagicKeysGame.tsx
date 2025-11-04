@@ -100,7 +100,7 @@ const MagicKeysGame: React.FC<MagicKeysGameProps> = ({ onExit }) => {
                 <video ref={videoRef} autoPlay playsInline muted className="absolute w-full h-full object-cover"></video>
                 
                 {gameState !== 'playing' && (
-                    <div className="absolute inset-0 bg-black/70 flex items-center justify-center z-10">
+                    <div className="absolute inset-0 bg-black/70 flex items-center justify-center z-20">
                         <div className="text-center p-4">
                             <p className="text-lg text-slate-300 mb-6">Point your camera at your keyboard and play the falling notes!</p>
                             {error && <p className="text-red-400 mb-4">{error}</p>}
@@ -109,22 +109,24 @@ const MagicKeysGame: React.FC<MagicKeysGameProps> = ({ onExit }) => {
                     </div>
                 )}
 
-                {/* Game Overlay */}
-                <div className="absolute inset-0 z-10">
-                    {/* Play Zone Line */}
-                    <div className="absolute w-full h-1 bg-green-400/80 shadow-lg shadow-green-400" style={{ top: `${PLAY_ZONE_Y}%` }}></div>
-                    
-                    {/* Falling Notes */}
-                    {notes.map(note => (
-                        <div
-                            key={note.id}
-                            className="absolute -translate-x-1/2 flex items-center justify-center w-12 h-12 bg-sky-400 rounded-full border-2 border-white shadow-lg"
-                            style={{ top: `${note.y}%`, left: `${note.lane}%` }}
-                        >
-                            <span className="text-xl font-bold text-slate-900">{note.name.slice(0, -1)}</span>
-                        </div>
-                    ))}
-                </div>
+                {/* Game Overlay - Now correctly rendered only when playing */}
+                {gameState === 'playing' && (
+                    <div className="absolute inset-0 z-10">
+                        {/* Play Zone Line */}
+                        <div className="absolute w-full h-1 bg-green-400/80 shadow-lg shadow-green-400" style={{ top: `${PLAY_ZONE_Y}%` }}></div>
+                        
+                        {/* Falling Notes */}
+                        {notes.map(note => (
+                            <div
+                                key={note.id}
+                                className="absolute -translate-x-1/2 flex items-center justify-center w-12 h-12 bg-sky-400 rounded-full border-2 border-white shadow-lg"
+                                style={{ top: `${note.y}%`, left: `${note.lane}%` }}
+                            >
+                                <span className="text-xl font-bold text-slate-900">{note.name.slice(0, -1)}</span>
+                            </div>
+                        ))}
+                    </div>
+                )}
             </div>
         </div>
     );
