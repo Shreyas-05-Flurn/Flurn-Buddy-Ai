@@ -89,3 +89,14 @@ export interface BeatTrack {
     id: number;
     steps: BeatStep[];
 }
+
+// --- MAGIC KEYS AR TYPES ---
+export interface PianoKeyPosition {
+    noteName: string;
+    boundingBox: {
+        x_min: number;
+        y_min: number;
+        x_max: number;
+        y_max: number;
+    };
+}

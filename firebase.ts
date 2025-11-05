@@ -13,18 +13,26 @@ interface MockUser {
 
 // --- SIMULATED AUTHENTICATION ---
 
+const loadUserFromStorage = (): MockUser | null => {
+    const userJson = localStorage.getItem('firebase_currentUser');
+    if (userJson) {
+        try {
+            return JSON.parse(userJson);
+        } catch (e) {
+            // If parsing fails, the data is corrupt, so remove it.
+            localStorage.removeItem('firebase_currentUser');
+            return null;
+        }
+    }
+    return null;
+};
+
 const auth = {
-    _currentUser: null as MockUser | null,
+    _currentUser: loadUserFromStorage(), // Eagerly load user from storage on module initialization
     _listeners: [] as ((user: MockUser | null) => void)[],
 
     get currentUser(): MockUser | null {
-        if (!this._currentUser) {
-            const userJson = localStorage.getItem('firebase_currentUser');
-            if (userJson) {
-                this._currentUser = JSON.parse(userJson);
-            }
-        }
-        return this._currentUser;
+        return this._currentUser; // Now it's just a simple getter for the internal state
     },
 
     setCurrentUser(user: MockUser | null) {
@@ -39,7 +47,7 @@ const auth = {
 
     onAuthStateChanged(callback: (user: MockUser | null) => void): () => void {
         this._listeners.push(callback);
-        // Immediately call with current user state
+        // Immediately call with current user state (which is now reliably loaded)
         callback(this.currentUser);
         
         // Return an unsubscribe function

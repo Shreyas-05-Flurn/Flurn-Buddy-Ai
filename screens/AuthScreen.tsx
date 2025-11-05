@@ -1,6 +1,8 @@
 // --- screens/AuthScreen.tsx ---
 import React, { useState } from 'react';
 import { signInWithEmailAndPassword, signUpWithEmailAndPassword } from '../firebase';
+import { useSoundEffects } from '../audio/useSoundEffects';
+import { audioService } from '../audio/AudioService';
 
 const AuthScreen: React.FC = () => {
     const [isLogin, setIsLogin] = useState(true);
@@ -8,11 +10,17 @@ const AuthScreen: React.FC = () => {
     const [password, setPassword] = useState('');
     const [error, setError] = useState('');
     const [loading, setLoading] = useState(false);
+    const { playClick } = useSoundEffects();
 
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
         setError('');
         setLoading(true);
+        
+        // This user gesture (click) is used to unlock the global audio context.
+        // This allows the onboarding story audio to play automatically after login.
+        playClick();
+        await audioService.resumeContext();
 
         try {
             if (isLogin) {

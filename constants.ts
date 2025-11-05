@@ -1,3 +1,5 @@
+
+
 import { World, Quest, LeagueTier, Friend } from './types';
 
 export const XP_PER_LEVEL = 1000;
@@ -50,7 +52,7 @@ export const WORLDS_DATA: World[] = [
             ]},
             { id: 'l2-6', type: 'note_identification', title: 'Technique: C Major Arpeggio', xp: 120, tokens: 1, content: ['C4', 'E4', 'G4', 'C5'], fact: "An arpeggio or 'broken chord' is when you play the notes of a chord one by one." },
             { id: 'l2-7', type: 'note_identification', title: 'Technique: G Major Arpeggio', xp: 120, tokens: 1, content: ['G4', 'B4', 'D5', 'G5'] },
-            { id: 'l2-8', type: 'quiz', title: 'Theory: Loud & Soft', xp: 100, tokens: 1, content: [
+            { id: 'l2-8', 'type': 'quiz', 'title': 'Theory: Loud & Soft', xp: 100, tokens: 1, content: [
                 { question: "What does the dynamic 'f' (forte) mean?", options: ["Play quietly", "Play loudly", "Play slowly"], correctAnswer: "Play loudly" },
                 { question: "What does the dynamic 'p' (piano) mean?", options: ["Play loudly", "Play quickly", "Play quietly"], correctAnswer: "Play quietly" },
             ]},
@@ -64,139 +66,108 @@ export const WORLDS_DATA: World[] = [
         description: "Let's learn some real songs to impress Buddy and your friends!",
         color: 'bg-rose-500',
         lessons: [
-            { id: 'l3-1', type: 'song', title: "Learn: Twinkle, Twinkle", xp: 150, tokens: 1, content: { name: "Twinkle, Twinkle, Little Star", notes: ['C4', 'C4', 'G4', 'G4', 'A4', 'A4', 'G4', 'F4', 'F4', 'E4', 'E4', 'D4', 'D4', 'C4'] }, fact: "The melody of 'Twinkle, Twinkle, Little Star' is from a French folk song from 1761." },
-            { id: 'l3-2', type: 'quiz', title: 'Theory: 4/4 Time', xp: 100, tokens: 1, content: [
-                { question: "In 4/4 time, how many beats are in a bar?", options: ["2", "3", "4"], correctAnswer: "4" },
-            ]},
-            { id: 'l3-3', type: 'song', title: 'Simple Rock Riff', xp: 150, tokens: 1, content: { name: "Rockin' Riff", notes: ['E4', 'E4', 'G4', 'E4', 'D4', 'D4', 'C4'] }, fact: "Many famous rock songs are built around very simple, catchy riffs." },
-            { id: 'l3-4', type: 'song', title: 'Pop Melody in C', xp: 150, tokens: 1, content: { name: "Pop Anthem", notes: ['C4', 'D4', 'E4', 'C4', 'E4', 'D4', 'C4'] }},
-            { id: 'l3-5', type: 'song', title: 'Minor Mood Melody', xp: 150, tokens: 1, content: { name: "Minor Mood", notes: ['A4', 'B4', 'C5', 'B4', 'A4', 'G4', 'A4'] }, fact: "Minor keys are often used in music to create a sad or thoughtful feeling." },
-            { id: 'l3-6', type: 'song', title: 'Ode to Joy (Simple)', xp: 160, tokens: 1, content: { name: "Ode to Joy", notes: ['E4', 'E4', 'F4', 'G4', 'G4', 'F4', 'E4', 'D4', 'C4', 'C4', 'D4', 'E4', 'E4', 'D4', 'D4'] }, fact: "'Ode to Joy' was composed by Ludwig van Beethoven in his 9th Symphony." },
-            { id: 'l3-7', type: 'song', title: 'Heart and Soul (Simple)', xp: 160, tokens: 1, content: { name: "Heart and Soul", notes: ['C4', 'C4', 'A4', 'A4', 'F4', 'F4', 'G4', 'G4'] }},
-            { id: 'l3-8', type: 'song', title: 'Rock Ballad Intro', xp: 150, tokens: 1, content: { name: "Power Ballad", notes: ['G4', 'F4', 'E4', 'D4', 'E4', 'C4'] }},
-            { id: 'l3-9', type: 'song', title: 'Upbeat Pop Chorus', xp: 150, tokens: 1, content: { name: "Radio Hit", notes: ['G4', 'G4', 'E4', 'F4', 'F4', 'D4', 'G4'] }},
-            { id: 'l3-10', type: 'boss', title: 'Final Performance', xp: 250, tokens: 1, content: { name: "Buddy's Theme", notes: ['C4', 'E4', 'G4', 'C5', 'A4', 'G4', 'F4', 'E4', 'D4', 'C4'] }, fact: "Composing your own simple melodies is a great next step!" },
+            { id: 'l3-1', type: 'song', title: "Learn: Twinkle, Twinkle", xp: 150, tokens: 1, content: { name: "Twinkle, Twinkle, Little Star", notes: ['C4', 'C4', 'G4', 'G4', 'A4', 'A4', 'G4', 'F4', 'F4', 'E4', 'E4', 'D4', 'D4', 'C4'] } },
+            { id: 'l3-2', type: 'song', title: "Learn: Mary Had a Little Lamb", xp: 150, tokens: 1, content: { name: "Mary Had a Little Lamb", notes: ['E4', 'D4', 'C4', 'D4', 'E4', 'E4', 'E4', 'D4', 'D4', 'D4', 'E4', 'G4', 'G4'] } },
+            { id: 'l3-3', type: 'song', title: "Learn: Ode to Joy", xp: 200, tokens: 1, content: { name: "Ode to Joy", notes: ['E4', 'E4', 'F4', 'G4', 'G4', 'F4', 'E4', 'D4', 'C4', 'C4', 'D4', 'E4', 'E4', 'D4', 'D4'] } },
+            { id: 'l3-4', type: 'boss', title: 'Songbook Master', xp: 250, tokens: 1, content: { name: "Medley Challenge", notes: ['C4', 'C4', 'G4', 'G4', 'E4', 'D4', 'C4', 'D4', 'E4', 'E4', 'E4', 'E4', 'E4', 'F4', 'G4'] } },
         ]
     }
-];
-
-export const SELECTABLE_AVATARS = [
-    '🎹', '🎸', '🎤', '🥁', '🎷', '🎺', '🎻', '🎧', '🎶', '🎵', '🎼', '🧑‍🎤'
 ];
 
 export const SHOP_COSMETICS = [
     {
         id: 'default',
-        name: 'Flurn Buddy Green',
+        name: 'Default',
         cost: 0,
         colors: {
             bgGradient: 'from-slate-900 to-slate-800',
-        }
+        },
     },
     {
-        id: 'sunrise',
-        name: 'Sunrise',
+        id: 'sunset',
+        name: 'Sunset Groove',
         cost: 500,
         colors: {
-            bgGradient: 'from-orange-800 to-amber-900',
-        }
+            bgGradient: 'from-purple-900 to-rose-700',
+        },
     },
     {
-        id: 'synthwave',
-        name: 'Synthwave',
+        id: 'ocean',
+        name: 'Ocean Calm',
         cost: 500,
         colors: {
-            bgGradient: 'from-indigo-900 to-purple-900',
-        }
+            bgGradient: 'from-cyan-900 to-blue-800',
+        },
+    },
+    {
+        id: 'forest',
+        name: 'Forest Mist',
+        cost: 500,
+        colors: {
+            bgGradient: 'from-green-900 to-teal-800',
+        },
     },
 ];
-
-// --- New Feature Constants ---
 
 export const DAILY_QUEST_DEFINITIONS: Omit<Quest, 'progress' | 'isClaimed'>[] = [
-    { id: 'dq1', type: 'earn_xp', description: 'Earn 100 XP', target: 100, reward: { tokens: 10 } },
-    { id: 'dq2', type: 'complete_lessons', description: 'Complete 2 lessons', target: 2, reward: { tokens: 15 } },
-    { id: 'dq3', type: 'earn_xp', description: 'Earn 250 XP', target: 250, reward: { tokens: 25 } },
-    { id: 'dq4', type: 'complete_lessons', description: 'Complete 3 lessons', target: 3, reward: { tokens: 30 } },
+    { id: 'q1', type: 'earn_xp', description: 'Earn 100 XP', target: 100, reward: { tokens: 10 } },
+    { id: 'q2', type: 'complete_lessons', description: 'Complete 2 lessons', target: 2, reward: { tokens: 15 } },
+    { id: 'q3', type: 'earn_xp', description: 'Earn 250 XP', target: 250, reward: { tokens: 25 } },
+    { id: 'q4', type: 'complete_lessons', description: 'Complete 3 lessons', target: 3, reward: { tokens: 30 } },
+    { id: 'q5', type: 'earn_xp', description: 'Earn 50 XP in one lesson', target: 50, reward: { tokens: 5 } },
 ];
-
-export const LEAGUE_TIERS: { [key in LeagueTier]: { name: string; icon: string; color: string } } = {
-    Bronze: { name: 'Bronze League', icon: '🥉', color: 'text-yellow-600' },
-    Silver: { name: 'Silver League', icon: '🥈', color: 'text-slate-400' },
-    Gold: { name: 'Gold League', icon: '🥇', color: 'text-yellow-400' },
-    Diamond: { name: 'Diamond League', icon: '💎', color: 'text-cyan-400' },
-};
 
 export const MOCK_INITIAL_FRIENDS: Friend[] = [
-     { id: 'f1', name: 'Rhythm Ruler', xp: 1500, avatar: '🕺' },
-     { id: 'f2', name: 'Key Master', xp: 980, avatar: '🔑' },
+    { id: 'f1', name: 'Rhythmbot', xp: 15200, avatar: '🤖' },
+    { id: 'f2', name: 'Melody', xp: 9800, avatar: '😇' },
+    { id: 'f3', name: 'Harmony', xp: 7500, avatar: '🤗' },
 ];
 
-export const MOCK_LEAGUE_MEMBERS = [ // Static mock data for league view
-    { name: 'Piano Prodigy', xp: 5800, avatar: '🏆' },
-    { name: 'Mozart Jr.', xp: 4250, avatar: '👑' },
-    { name: 'Melody Maker', xp: 3200, avatar: '🎵' },
-    { name: 'Chord Champ', xp: 2150, avatar: '🥇' },
-    // User will be inserted here
-    { name: 'Scale Surfer', xp: 620, avatar: '🏄' },
-    { name: 'Octave Explorer', xp: 510, avatar: '🧑‍🚀' },
-    { name: 'New Note', xp: 120, avatar: '🎼' },
-    { name: 'Treble Maker', xp: 95, avatar: '😈' },
-    { name: 'Bass Ace', xp: 70, avatar: '😎' },
-    { name: 'Just Starting', xp: 20, avatar: '🙂' },
+export const SELECTABLE_AVATARS = ['🎹', '🎸', '🥁', '🎤', '🎧', '🎷', '🎺', '🎻', '🎼', '🎵', '🎶', '🧑‍🎤'];
+
+// FIX: Added missing constants for leaderboards and version log to resolve import errors.
+export const MOCK_LEAGUE_MEMBERS = [
+    { name: 'Piano Prodigy', xp: 2340, avatar: '😎' },
+    { name: 'Key Master', xp: 2110, avatar: '🧐' },
+    { name: 'Sharp Shooter', xp: 1980, avatar: '🎯' },
+    { name: 'Chord Crusher', xp: 1850, avatar: '💥' },
+    { name: 'Rhythm Ace', xp: 1720, avatar: '🎸' },
+    { name: 'Note Ninja', xp: 1600, avatar: '🥷' },
+    { name: 'Treble Maker', xp: 1450, avatar: '😈' },
+    { name: 'Bass King', xp: 1230, avatar: '👑' },
+    { name: 'Octave Hopper', xp: 1100, avatar: '🐰' },
+    { name: 'Scale Runner', xp: 950, avatar: '🏃' },
+    { name: 'Tempo Tapper', xp: 820, avatar: '👆' },
+    { name: 'Half Note Harry', xp: 700, avatar: '🤓' },
+    { name: 'C Major Carl', xp: 550, avatar: '🙂' },
+    { name: 'Middle C Maddy', xp: 400, avatar: '😊' },
 ];
+
+export const LEAGUE_TIERS: Record<LeagueTier, { icon: string; name: LeagueTier; color: string; }> = {
+    Bronze: { icon: '🥉', name: 'Bronze', color: 'text-orange-400' },
+    Silver: { icon: '🥈', name: 'Silver', color: 'text-slate-300' },
+    Gold: { icon: '🥇', name: 'Gold', color: 'text-yellow-400' },
+    Diamond: { icon: '💎', name: 'Diamond', color: 'text-cyan-400' },
+};
 
 export const VERSION_LOG = [
     {
         version: '1.0.0',
-        date: 'Initial Release',
+        date: '2024-07-29',
         notes: [
-            'Core learning path with Note & Chord Identification.',
-            'AI Theory Tutor powered by Gemini.',
-            'XP, Levels, and basic progress tracking.',
+            'Initial release of Flurn Buddy!',
+            'Added Note Valley world with 10 lessons.',
+            'Implemented user profiles and streaks.'
         ]
     },
     {
         version: '1.1.0',
-        date: 'The Social & Gamification Update',
+        date: '2024-08-05',
         notes: [
-            'Introduced the Shop with Streak Freezes & XP Boosts.',
-            'Replaced "Notes" currency with "Tokens".',
-            'Added Daily Quests for rewards.',
-            'Launched the "Note Garden" to visualize streaks.',
-            'Overhauled Leaderboards into competitive Weekly Leagues.',
-            'Added Friends list, gifting, and friend-based leaderboards.',
+            'New World: Chord Peaks!',
+            'Added Daily Quests to earn more tokens.',
+            'Introduced the Shop with perks and cosmetics.',
+            'Added AI Tutor "Talk to Buddy" feature.'
         ]
-    },
-    {
-        version: '1.2.0',
-        date: 'The Content & Creativity Update',
-        notes: [
-            'Introduced Buddy the mascot and a story.',
-            'Added the "Songbook" to learn real songs.',
-            'Launched the "Practice Hub" with mini-games: Ear Training, Sight-Reading Rush, and Chord Invaders.',
-        ]
-    },
-    {
-        version: '1.3.0',
-        date: 'The "Never-Before-Seen" Update',
-        notes: [
-            'Launched the "Buddy Hub" as a central place for AI features.',
-            'Added Performance Coach (simulated posture analysis).',
-            'Added Practice Weaver (personalized lesson generation).',
-            'Added Buddy\'s Beat Maker for creative expression.',
-            'Introduced "Magic Keys" AR practice mode.',
-            'UI Overhaul: Shop moved to Profile, Buddy gets a dedicated tab.',
-        ]
-    },
-    {
-        version: '1.4.0',
-        date: 'The Polish & Syllabus Update',
-        notes: [
-            'Expanded lessons to align with Trinity Grade 0 syllabus.',
-            'Added UI sound effects and haptic feedback.',
-            'Added cosmetic App Themes in the Shop.',
-            'Added profile customization (nickname & avatar).',
-        ]
-    },
+    }
 ];

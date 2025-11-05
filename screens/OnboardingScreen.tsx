@@ -1,23 +1,102 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useUserProgress } from '../context/UserProgressContext';
 import { useSoundEffects } from '../audio/useSoundEffects';
 import { SELECTABLE_AVATARS } from '../constants';
+import { audioService } from '../audio/AudioService';
+import { ONBOARDING_AUDIO_MP3_BASE64 } from '../audio/onboardingAudio';
+import { decode } from '../utils/audioUtils';
 
 interface OnboardingScreenProps {
     onComplete: () => void;
 }
 
 const OnboardingScreen: React.FC<OnboardingScreenProps> = ({ onComplete }) => {
-    const { progress, completeOnboarding } = useUserProgress();
+    const { completeOnboarding } = useUserProgress();
     const { playClick, playSuccess } = useSoundEffects();
     const [step, setStep] = useState(1);
     const [tempNickname, setTempNickname] = useState('New Pianist');
     const [tempAvatar, setTempAvatar] = useState('🎹');
+    const [isStoryReady, setIsStoryReady] = useState(false);
+    const [isAutoplayBlocked, setIsAutoplayBlocked] = useState(false);
+    
+    const audioBufferRef = useRef<AudioBuffer | null>(null);
+    const audioSourceRef = useRef<AudioBufferSourceNode | null>(null);
+
+    const storyText = "This is Buddy. His world has lost its music! Help him bring it back by completing lessons and restoring harmony.";
+
+    const playAudio = () => {
+        const context = audioService.audioContext;
+        if (!audioBufferRef.current || !context || audioSourceRef.current) return;
+        
+        // Final check before playing
+        if (context.state === 'running') {
+            const source = context.createBufferSource();
+            audioSourceRef.current = source;
+            source.buffer = audioBufferRef.current;
+            source.connect(context.destination);
+            source.start();
+
+            source.onended = () => {
+                audioSourceRef.current = null;
+            };
+        } else {
+             // If context is still not running, show the prompt (fallback for auto-login)
+            setIsAutoplayBlocked(true);
+        }
+    };
+
+    const handleUserInteraction = async () => {
+        if (isAutoplayBlocked) {
+            await audioService.resumeContext();
+            playAudio();
+            setIsAutoplayBlocked(false);
+        }
+    };
+
+    // Effect to set up and play audio, handling autoplay policies
+    useEffect(() => {
+        const setupAndPlayAudio = async () => {
+            try {
+                const context = audioService.audioContext;
+                if (!context) {
+                    setIsStoryReady(true);
+                    return;
+                }
+                
+                // NEW METHOD: Directly decode the base64 string, bypassing fetch()
+                const decodedData = decode(ONBOARDING_AUDIO_MP3_BASE64);
+                const arrayBuffer = decodedData.buffer; // Use the underlying ArrayBuffer
+                const buffer = await context.decodeAudioData(arrayBuffer);
+                
+                audioBufferRef.current = buffer;
+                
+                setIsStoryReady(true);
+                playAudio(); // Attempt to play immediately
+
+            } catch (error) {
+                console.error("Audio Setup Error:", error);
+                setIsStoryReady(true); // Ensure UI is not blocked on audio error
+            }
+        };
+
+        setupAndPlayAudio();
+
+        return () => {
+            // Stop any playing audio when the component unmounts
+            if (audioSourceRef.current) {
+                try {
+                    audioSourceRef.current.stop();
+                } catch(e) {
+                    // This can throw an error if the source has already finished.
+                }
+            }
+            // Do NOT close the global audio context here as it's shared.
+        };
+    }, []);
 
     const handleProfileSubmit = () => {
         if (tempNickname.trim()) {
             playSuccess();
-            // Pass nickname and avatar to be saved with onboarding status
             completeOnboarding(tempNickname.trim(), tempAvatar);
             onComplete();
         }
@@ -28,15 +107,19 @@ const OnboardingScreen: React.FC<OnboardingScreenProps> = ({ onComplete }) => {
             <div className="text-green-400 mb-6">
                 <span className="text-8xl">🎶</span>
             </div>
-            <h1 className="text-4xl font-extrabold text-white mb-4">Welcome to Flurn Buddy!</h1>
-            <p className="text-slate-300 text-lg mb-12">
-                This is Buddy. His world has lost its music! Help him bring it back by completing lessons and restoring harmony.
-            </p>
+            <div className="text-center w-full mb-12">
+                <h1 className="text-4xl font-extrabold text-white mb-4 mx-auto">Welcome to Flurn Buddy!</h1>
+                <div className="relative inline-block max-w-md">
+                    <p className={`text-slate-300 text-lg transition-opacity duration-300 ${isStoryReady ? 'opacity-100' : 'opacity-0'}`}>
+                        {storyText}
+                    </p>
+                </div>
+            </div>
             <button
                 onClick={() => { playClick(); setStep(2); }}
                 className="w-full bg-green-500 text-white font-bold py-4 px-6 rounded-2xl shadow-lg shadow-green-500/20 hover:bg-green-600 transform hover:scale-105 transition-all duration-300 ease-in-out"
             >
-                Continue
+                Let's help!
             </button>
         </>
     );
@@ -78,7 +161,15 @@ const OnboardingScreen: React.FC<OnboardingScreenProps> = ({ onComplete }) => {
     );
 
     return (
-        <div className="flex flex-col items-center justify-center h-full text-center p-8 bg-slate-900">
+        <div 
+            className="flex flex-col items-center justify-center h-full text-center p-8 bg-slate-900"
+            onClick={isAutoplayBlocked ? handleUserInteraction : undefined}
+        >
+            {isAutoplayBlocked && (
+                <div className="absolute inset-0 bg-black/50 flex flex-col items-center justify-center z-10 animate-pulse">
+                    <p className="text-2xl font-bold text-white">Tap anywhere to begin</p>
+                </div>
+            )}
             {step === 1 ? renderStepOne() : renderStepTwo()}
         </div>
     );
