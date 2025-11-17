@@ -1,7 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { BeatTrack, BeatStep } from '../types';
-
-declare const Tone: any;
+import { BeatTrack } from '../types';
+import { audioService } from '../audio/AudioService';
 
 interface BeatMakerProps {
     onExit: () => void;
@@ -21,69 +20,57 @@ const initialTracks: BeatTrack[] = NOTES.map((note, i) => ({
 const BeatMaker: React.FC<BeatMakerProps> = ({ onExit }) => {
     const [tracks, setTracks] = useState<BeatTrack[]>(initialTracks);
     const [isPlaying, setIsPlaying] = useState(false);
-    const [currentStep, setCurrentStep] = useState(0);
+    const [currentStep, setCurrentStep] = useState(-1);
 
-    const synth = useRef<any>(null);
-    const sequence = useRef<any>(null);
+    const tracksRef = useRef(tracks);
+    tracksRef.current = tracks;
+
+    const intervalRef = useRef<number | null>(null);
+    const stepTime = 125; // 120 BPM, 16th notes
 
     useEffect(() => {
-        // Initialize Tone.js elements
-        if (typeof Tone !== 'undefined') {
-            synth.current = new Tone.PolySynth(Tone.Synth).toDestination();
-        }
-
         return () => {
-            // Cleanup on unmount
-            if (sequence.current) {
-                sequence.current.stop();
-                sequence.current.dispose();
-            }
-            if (Tone.Transport.state === 'started') {
-                Tone.Transport.stop();
-                Tone.Transport.cancel();
-            }
+            if (intervalRef.current) clearInterval(intervalRef.current);
         };
     }, []);
 
     const toggleStep = (trackIndex: number, stepIndex: number) => {
-        const newTracks = [...tracks];
-        newTracks[trackIndex].steps[stepIndex].isActive = !newTracks[trackIndex].steps[stepIndex].isActive;
-        setTracks(newTracks);
+        setTracks(prevTracks => {
+            const newTracks = JSON.parse(JSON.stringify(prevTracks));
+            newTracks[trackIndex].steps[stepIndex].isActive = !newTracks[trackIndex].steps[stepIndex].isActive;
+            return newTracks;
+        });
+    };
+
+    const runSequence = () => {
+        setCurrentStep(prevStep => {
+            const nextStep = (prevStep + 1) % NUM_STEPS;
+            const currentTracks = tracksRef.current;
+            const notesToPlay: string[] = [];
+            currentTracks.forEach(track => {
+                if (track.steps[nextStep].isActive) {
+                    notesToPlay.push(track.steps[nextStep].note);
+                }
+            });
+            if (notesToPlay.length > 0) {
+                audioService.playNotes(notesToPlay);
+            }
+            return nextStep;
+        });
     };
 
     const togglePlay = () => {
-        if (typeof Tone === 'undefined') return;
-
-        if (Tone.context.state !== 'running') {
-            Tone.start();
-        }
-
+        audioService.resumeContext();
         if (isPlaying) {
-            Tone.Transport.stop();
+            if (intervalRef.current) clearInterval(intervalRef.current);
+            intervalRef.current = null;
+            setCurrentStep(-1);
             setIsPlaying(false);
         } else {
-            if (sequence.current) {
-                sequence.current.dispose();
-            }
-            
-            sequence.current = new Tone.Sequence((time, step) => {
-                const notesToPlay: string[] = [];
-                tracks.forEach(track => {
-                    if (track.steps[step].isActive) {
-                        notesToPlay.push(track.steps[step].note);
-                    }
-                });
-                if (notesToPlay.length > 0) {
-                    synth.current.triggerAttackRelease(notesToPlay, '8n', time);
-                }
-                Tone.Draw.schedule(() => {
-                    setCurrentStep(step);
-                }, time);
-            }, Array.from(Array(NUM_STEPS).keys()), '16n');
-
-            sequence.current.start(0);
-            Tone.Transport.start();
             setIsPlaying(true);
+            setCurrentStep(-1);
+            runSequence();
+            intervalRef.current = window.setInterval(runSequence, stepTime);
         }
     };
     

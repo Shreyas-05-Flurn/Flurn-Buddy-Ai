@@ -1,19 +1,21 @@
+import { PIANO_SAMPLES } from './pianoSamples';
+import { decode } from '../utils/audioUtils';
+
 /**
- * A singleton service to manage the global Web Audio API AudioContext.
- * This ensures that we use a single context across the application,
- * which can be unlocked by an initial user gesture (like a login button click)
- * and then used for subsequent audio playback.
+ * A singleton service to manage the global Web Audio API AudioContext and playback of audio samples.
  */
 class AudioService {
     private static instance: AudioService;
     public audioContext: AudioContext | null = null;
+    private audioBuffers: Map<string, AudioBuffer> = new Map();
+    private isLoadingSamples = false;
 
     private constructor() {
-        // This code runs only once when the singleton is first instantiated.
         if (typeof window !== 'undefined' && (window.AudioContext || (window as any).webkitAudioContext)) {
             try {
-                // Create the single audio context for the entire app.
-                this.audioContext = new (window.AudioContext || (window as any).webkitAudioContext)({ sampleRate: 24000 });
+                // Use default sample rate for best quality
+                this.audioContext = new (window.AudioContext || (window as any).webkitAudioContext)();
+                this.loadSamples(); // Start loading samples on initialization
             } catch (e) {
                 console.error("Web Audio API could not be initialized.", e);
             }
@@ -22,9 +24,6 @@ class AudioService {
         }
     }
 
-    /**
-     * Gets the singleton instance of the AudioService.
-     */
     public static getInstance(): AudioService {
         if (!AudioService.instance) {
             AudioService.instance = new AudioService();
@@ -32,10 +31,25 @@ class AudioService {
         return AudioService.instance;
     }
 
-    /**
-     * Resumes the audio context if it is in a suspended state.
-     * This must be called in response to a user gesture (e.g., a click).
-     */
+    private async loadSamples() {
+        if (!this.audioContext || this.isLoadingSamples || this.audioBuffers.size > 0) return;
+        this.isLoadingSamples = true;
+        
+        const promises = Object.entries(PIANO_SAMPLES).map(async ([note, base64Data]) => {
+            try {
+                const decodedData = decode(base64Data);
+                const arrayBuffer = decodedData.buffer;
+                const audioBuffer = await this.audioContext!.decodeAudioData(arrayBuffer);
+                this.audioBuffers.set(note, audioBuffer);
+            } catch (error) {
+                console.error(`Failed to load sample for ${note}:`, error);
+            }
+        });
+
+        await Promise.all(promises);
+        this.isLoadingSamples = false;
+    }
+
     public async resumeContext() {
         if (this.audioContext && this.audioContext.state === 'suspended') {
             try {
@@ -44,6 +58,23 @@ class AudioService {
                 console.error("Could not resume audio context:", e);
             }
         }
+    }
+
+    public playNotes(notes: string | string[]) {
+        this.resumeContext();
+        if (!this.audioContext || this.isLoadingSamples) return;
+
+        const notesToPlay = Array.isArray(notes) ? notes : [notes];
+
+        notesToPlay.forEach(note => {
+            const buffer = this.audioBuffers.get(note);
+            if (buffer) {
+                const source = this.audioContext!.createBufferSource();
+                source.buffer = buffer;
+                source.connect(this.audioContext!.destination);
+                source.start();
+            }
+        });
     }
 }
 
